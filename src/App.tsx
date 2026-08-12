@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActiveTab, CabinetParams } from './types';
+import { ActiveTab } from './types';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { RoomPlannerStudio } from './components/RoomPlannerStudio';
@@ -15,17 +15,44 @@ import { ManualKB } from './components/ManualKB';
 import { MacroGuideStudio } from './components/MacroGuideStudio';
 import { SolidWorksLinkModal } from './components/SolidWorksLinkModal';
 import { AiAssistant } from './components/AiAssistant';
+import { NestingStudio } from './components/NestingStudio';
+import { LaserCncStudio } from './components/LaserCncStudio';
+import { SavedScenariosModal } from './components/SavedScenariosModal';
+import { getAutosaveState } from './utils/scenarioStorage';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [isSwConnected, setIsSwConnected] = useState<boolean>(false);
   const [showNotification, setShowNotification] = useState<string | null>(null);
 
+  // Scenario Management Modal State
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState<boolean>(false);
+  const [loadedScenarioState, setLoadedScenarioState] = useState<{
+    tab: ActiveTab;
+    data: any;
+    key: number;
+  } | null>(null);
+
   const handleConnectSw = () => {
-    // Test connectivity simulation
     setIsSwConnected(true);
     setShowNotification('اتصال با موفقیت به SolidWorks COM API برقرار گردید!');
     setTimeout(() => setShowNotification(null), 4000);
+  };
+
+  const handleLoadScenario = (targetTab: ActiveTab, data: any) => {
+    setLoadedScenarioState({ tab: targetTab, data, key: Date.now() });
+    setActiveTab(targetTab);
+    setShowNotification(`سناریوی جدید در بخش "${targetTab}" بارگذاری گردید.`);
+    setTimeout(() => setShowNotification(null), 3500);
+  };
+
+  // Helper to extract active tab data for saving
+  const getCurrentTabData = () => {
+    if (loadedScenarioState?.tab === activeTab) {
+      return loadedScenarioState.data;
+    }
+    const autosaved = getAutosaveState<any>(activeTab);
+    return autosaved?.data || null;
   };
 
   return (
@@ -36,6 +63,7 @@ export default function App() {
         setActiveTab={setActiveTab}
         isSwConnected={isSwConnected}
         onConnectSw={handleConnectSw}
+        onOpenScenarioModal={() => setIsScenarioModalOpen(true)}
       />
 
       {/* Notification Toast */}
@@ -57,12 +85,46 @@ export default function App() {
         )}
 
         {activeTab === 'room_planner' && (
-          <RoomPlannerStudio onOpenShoppingList={() => setActiveTab('procurement')} />
+          <RoomPlannerStudio
+            key={loadedScenarioState?.tab === 'room_planner' ? loadedScenarioState.key : 'rp-default'}
+            initialParams={loadedScenarioState?.tab === 'room_planner' ? loadedScenarioState.data : undefined}
+            onOpenShoppingList={() => setActiveTab('procurement')}
+            onOpenScenarioModal={() => setIsScenarioModalOpen(true)}
+            onOpenSwModal={() => setActiveTab('solidworks_link')}
+          />
         )}
 
-        {activeTab === 'cabinet' && <CabinetStudio />}
+        {activeTab === 'cabinet' && (
+          <CabinetStudio
+            key={loadedScenarioState?.tab === 'cabinet' ? loadedScenarioState.key : 'cab-default'}
+            initialParams={loadedScenarioState?.tab === 'cabinet' ? loadedScenarioState.data : undefined}
+            onOpenScenarioModal={() => setIsScenarioModalOpen(true)}
+          />
+        )}
 
-        {activeTab === 'murphy_bed' && <MurphyBedStudio />}
+        {activeTab === 'murphy_bed' && (
+          <MurphyBedStudio
+            key={loadedScenarioState?.tab === 'murphy_bed' ? loadedScenarioState.key : 'mb-default'}
+            initialParams={loadedScenarioState?.tab === 'murphy_bed' ? loadedScenarioState.data : undefined}
+            onOpenScenarioModal={() => setIsScenarioModalOpen(true)}
+          />
+        )}
+
+        {activeTab === 'nesting' && (
+          <NestingStudio
+            key={loadedScenarioState?.tab === 'nesting' ? loadedScenarioState.key : 'nest-default'}
+            initialParams={loadedScenarioState?.tab === 'nesting' ? loadedScenarioState.data : undefined}
+            onOpenScenarioModal={() => setIsScenarioModalOpen(true)}
+          />
+        )}
+
+        {activeTab === 'laser_cnc' && (
+          <LaserCncStudio
+            key={loadedScenarioState?.tab === 'laser_cnc' ? loadedScenarioState.key : 'laser-default'}
+            initialParams={loadedScenarioState?.tab === 'laser_cnc' ? loadedScenarioState.data : undefined}
+            onOpenScenarioModal={() => setIsScenarioModalOpen(true)}
+          />
+        )}
 
         {activeTab === 'procurement' && <ProcurementStudio />}
 
@@ -95,6 +157,15 @@ export default function App() {
 
         {activeTab === 'ai_assistant' && <AiAssistant />}
       </main>
+
+      {/* LocalStorage Saved Scenarios Modal */}
+      <SavedScenariosModal
+        isOpen={isScenarioModalOpen}
+        onClose={() => setIsScenarioModalOpen(false)}
+        activeTab={activeTab}
+        currentTabData={getCurrentTabData()}
+        onLoadScenario={handleLoadScenario}
+      />
 
       {/* Footer */}
       <footer className="bg-[#1e293b] border-t border-slate-700 py-4 text-center text-xs text-slate-300">

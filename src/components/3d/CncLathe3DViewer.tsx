@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { CncLatheParams } from '../../types';
+import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
 interface CncLathe3DViewerProps {
   params: CncLatheParams;
@@ -8,6 +9,7 @@ interface CncLathe3DViewerProps {
 
 export const CncLathe3DViewer: React.FC<CncLathe3DViewerProps> = ({ params }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [zoomFactor, setZoomFactor] = useState<number>(1.0);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -22,7 +24,8 @@ export const CncLathe3DViewer: React.FC<CncLathe3DViewerProps> = ({ params }) =>
     const height = containerRef.current.clientHeight || 350;
 
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.01, 10);
-    camera.position.set(totalL * 1.5, maxR * 3, totalL * 1.5);
+    const distMult = 1 / zoomFactor;
+    camera.position.set(totalL * 1.5 * distMult, maxR * 3 * distMult, totalL * 1.5 * distMult);
     camera.lookAt(totalL / 2, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -110,8 +113,14 @@ export const CncLathe3DViewer: React.FC<CncLathe3DViewerProps> = ({ params }) =>
 
     const onMouseUp = () => (isDragging = false);
 
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setZoomFactor((prev) => Math.min(3.5, Math.max(0.4, prev + (e.deltaY < 0 ? 0.15 : -0.15))));
+    };
+
     const dom = renderer.domElement;
     dom.addEventListener('mousedown', onMouseDown);
+    dom.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
 
@@ -126,15 +135,42 @@ export const CncLathe3DViewer: React.FC<CncLathe3DViewerProps> = ({ params }) =>
     return () => {
       cancelAnimationFrame(animId);
       dom.removeEventListener('mousedown', onMouseDown);
+      dom.removeEventListener('wheel', onWheel);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
       renderer.dispose();
     };
-  }, [params]);
+  }, [params, zoomFactor]);
 
   return (
     <div className="relative w-full h-[350px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-xl flex flex-col">
       <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
+
+      {/* Floating Zoom Controls Bar */}
+      <div className="absolute top-2 left-2 bg-slate-900/80 backdrop-blur p-1 rounded-lg border border-slate-700 shadow-lg text-xs font-bold text-white flex items-center gap-1 z-10">
+        <button
+          onClick={() => setZoomFactor((z) => Math.min(3.5, z + 0.25))}
+          className="p-1 hover:bg-slate-800 rounded text-slate-200 transition"
+          title="بزرگنمایی (Zoom In)"
+        >
+          <ZoomIn className="w-3.5 h-3.5 text-sky-400" />
+        </button>
+        <span className="px-1 text-[10px] font-mono text-sky-300">{Math.round(zoomFactor * 100)}%</span>
+        <button
+          onClick={() => setZoomFactor((z) => Math.max(0.4, z - 0.25))}
+          className="p-1 hover:bg-slate-800 rounded text-slate-200 transition"
+          title="کوچکنمایی (Zoom Out)"
+        >
+          <ZoomOut className="w-3.5 h-3.5 text-sky-400" />
+        </button>
+        <button
+          onClick={() => setZoomFactor(1.0)}
+          className="p-1 hover:bg-slate-800 rounded text-slate-200 transition"
+          title="بازنشانی زوم"
+        >
+          <RotateCcw className="w-3 h-3 text-slate-400" />
+        </button>
+      </div>
       <div className="absolute bottom-2 right-2 left-2 p-2 bg-slate-900/80 backdrop-blur rounded text-xs text-slate-300 flex justify-between items-center font-mono">
         <span>شفت CNC: <strong className="text-sky-400">{params.partName}</strong></span>
         <span>طول کل: {params.overallLength}mm | حداکثر قطر: {params.maxDiameter}mm</span>

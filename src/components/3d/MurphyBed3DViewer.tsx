@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { MurphyBedParams } from '../MurphyBedStudio';
+import { exportGroupToOBJ, exportGroupToSTL, downloadTextFile } from '../../utils/exporter3D';
+import { Download, ZoomIn, ZoomOut, RotateCcw, Eye } from 'lucide-react';
 
 interface MurphyBed3DViewerProps {
   params: MurphyBedParams;
@@ -9,11 +11,25 @@ interface MurphyBed3DViewerProps {
 
 export const MurphyBed3DViewer: React.FC<MurphyBed3DViewerProps> = ({ params, customMechanismName }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const worldGroupRef = useRef<THREE.Group | null>(null);
   const [bedFoldAngle, setBedFoldAngle] = useState<number>(75); // 0 = fully closed (vertical), 90 = fully open (horizontal)
   const [exploded, setExploded] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<'solid' | 'wireframe'>('solid');
+  const [zoomFactor, setZoomFactor] = useState<number>(1.0);
 
   const explodeOffset = exploded ? 0.18 : 0; // meters
+
+  const handleExport3D = (format: 'obj' | 'stl') => {
+    if (!worldGroupRef.current) return;
+    const cleanName = params.name.replace(/[^a-zA-Z0-9]/g, '_') || 'murphy_bed_model';
+    if (format === 'obj') {
+      const objData = exportGroupToOBJ(worldGroupRef.current, `${cleanName}.obj`);
+      downloadTextFile(objData, `${cleanName}.obj`);
+    } else {
+      const stlData = exportGroupToSTL(worldGroupRef.current, `${cleanName}.stl`);
+      downloadTextFile(stlData, `${cleanName}.stl`);
+    }
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -42,7 +58,8 @@ export const MurphyBed3DViewer: React.FC<MurphyBed3DViewerProps> = ({ params, cu
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
     // Position camera to see entire bed structure and side wardrobes
     const totalSpan = boxW + leftW + rightW;
-    camera.position.set(totalSpan * 1.2, boxH * 1.2, l * 2.2);
+    const distMult = 1 / zoomFactor;
+    camera.position.set(totalSpan * 1.2 * distMult, boxH * 1.2 * distMult, l * 2.2 * distMult);
     camera.lookAt(0, boxH / 2, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -73,6 +90,7 @@ export const MurphyBed3DViewer: React.FC<MurphyBed3DViewerProps> = ({ params, cu
 
     // Master World Group
     const worldGroup = new THREE.Group();
+    worldGroupRef.current = worldGroup;
     scene.add(worldGroup);
 
     // Materials
@@ -295,8 +313,14 @@ export const MurphyBed3DViewer: React.FC<MurphyBed3DViewerProps> = ({ params, cu
       isDragging = false;
     };
 
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setZoomFactor((prev) => Math.min(3.5, Math.max(0.4, prev + (e.deltaY < 0 ? 0.15 : -0.15))));
+    };
+
     const domElem = renderer.domElement;
     domElem.addEventListener('mousedown', handleMouseDown);
+    domElem.addEventListener('wheel', handleWheel, { passive: false });
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
 
@@ -311,16 +335,43 @@ export const MurphyBed3DViewer: React.FC<MurphyBed3DViewerProps> = ({ params, cu
     return () => {
       cancelAnimationFrame(animFrameId);
       domElem.removeEventListener('mousedown', handleMouseDown);
+      domElem.removeEventListener('wheel', handleWheel);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
       renderer.dispose();
     };
-  }, [params, bedFoldAngle, exploded, viewMode]);
+  }, [params, bedFoldAngle, exploded, viewMode, zoomFactor]);
 
   return (
     <div className="relative w-full h-[480px] bg-slate-900 rounded-2xl overflow-hidden border border-slate-700 shadow-2xl flex flex-col">
       {/* 3D Canvas Element */}
       <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
+
+      {/* Floating Zoom Controls Bar */}
+      <div className="absolute top-3 left-3 bg-slate-950/85 backdrop-blur-md p-1 rounded-xl border border-slate-700/60 shadow-lg text-xs font-bold text-white flex items-center gap-1 z-10">
+        <button
+          onClick={() => setZoomFactor((z) => Math.min(3.5, z + 0.25))}
+          className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-200 transition"
+          title="بزرگنمایی (Zoom In)"
+        >
+          <ZoomIn className="w-4 h-4 text-sky-400" />
+        </button>
+        <span className="px-1 text-[11px] font-mono text-sky-300">{Math.round(zoomFactor * 100)}%</span>
+        <button
+          onClick={() => setZoomFactor((z) => Math.max(0.4, z - 0.25))}
+          className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-200 transition"
+          title="کوچکنمایی (Zoom Out)"
+        >
+          <ZoomOut className="w-4 h-4 text-sky-400" />
+        </button>
+        <button
+          onClick={() => setZoomFactor(1.0)}
+          className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-200 transition"
+          title="بازنشانی زوم"
+        >
+          <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+        </button>
+      </div>
 
       {/* Top Info Tag */}
       <div className="absolute top-3 right-3 flex items-center gap-2 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/60 text-xs text-slate-200 shadow-lg">
@@ -394,6 +445,26 @@ export const MurphyBed3DViewer: React.FC<MurphyBed3DViewerProps> = ({ params, cu
           >
             {viewMode === 'solid' ? '🌐 نمای سیمی (Wireframe)' : '🎨 نمای توپر (Solid)'}
           </button>
+
+          {/* 3D Export Buttons */}
+          <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
+            <button
+              onClick={() => handleExport3D('obj')}
+              className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[11px] font-bold transition flex items-center gap-1"
+              title="دانلود فایل سه‌بعدی OBJ جهت Blender، 3ds Max و KeyShot"
+            >
+              <Download className="w-3 h-3" />
+              دانلود .OBJ
+            </button>
+            <button
+              onClick={() => handleExport3D('stl')}
+              className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-bold transition flex items-center gap-1"
+              title="دانلود فایل سه‌بعدی STL جهت پرینت سه‌بعدی و SolidWorks"
+            >
+              <Download className="w-3 h-3" />
+              دانلود .STL
+            </button>
+          </div>
         </div>
 
         {/* Real-time Dimensions Tag */}

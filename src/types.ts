@@ -7,6 +7,8 @@ export type ActiveTab =
   | 'room_planner'
   | 'cabinet' 
   | 'murphy_bed'
+  | 'nesting'
+  | 'laser_cnc'
   | 'procurement'
   | 'standard_parts'
   | 'hardware' 

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ActiveTab } from '../types';
+import { getSavedScenarios } from '../utils/scenarioStorage';
 import { 
   Box, 
   Wrench, 
@@ -16,7 +17,10 @@ import {
   Bed,
   Home,
   ShoppingCart,
-  FileCode2
+  FileCode2,
+  Scissors,
+  Flame,
+  FolderOpen
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -24,6 +28,7 @@ interface HeaderProps {
   setActiveTab: (tab: ActiveTab) => void;
   isSwConnected: boolean;
   onConnectSw: () => void;
+  onOpenScenarioModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -31,13 +36,27 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   isSwConnected,
   onConnectSw,
+  onOpenScenarioModal,
 }) => {
+  const [savedCount, setSavedCount] = useState<number>(0);
+
+  useEffect(() => {
+    const updateCount = () => {
+      const scenarios = getSavedScenarios();
+      setSavedCount(scenarios.length);
+    };
+    updateCount();
+    window.addEventListener('storage', updateCount);
+    return () => window.removeEventListener('storage', updateCount);
+  }, []);
   const tabs: { id: ActiveTab; label: string; tooltip: string; icon: React.ReactNode }[] = [
     { id: 'dashboard', label: 'داشبورد اصلی', tooltip: 'نمای کلی و دسترسی سریع به تمام استودیوهای طراحی', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'macro_guide', label: 'راهنمای ماکرو سالیدورک', tooltip: 'آموزش کامل ماکرو چیست، نحوه اجرای آن در سالیدورک و راهنمای کارکردها', icon: <FileCode2 className="w-4 h-4 text-emerald-400" /> },
     { id: 'room_planner', label: 'طراحی هوشمند متراژ', tooltip: 'چیدمان اتوماتیک پلان آشپزخانه و اتاق خواب بر اساس ابعاد و زوایا', icon: <Home className="w-4 h-4" /> },
     { id: 'cabinet', label: 'طراحی کابینت', tooltip: 'طراحی یونیت‌های MDF، بادخور درب، نوار PVC و جدول برش', icon: <Box className="w-4 h-4" /> },
     { id: 'murphy_bed', label: 'تخت تاشو و اتاق خواب', tooltip: 'طراحی کلاف فولادی، جک هیدرولیک و کمدهای جانبی تخت دیواری', icon: <Bed className="w-4 h-4" /> },
+    { id: 'nesting', label: 'چیدمان برش MDF', tooltip: 'بهینه‌سازی چیدمان قطعات روی ورق MDF و کمترین ضایعات (Nesting Grid)', icon: <Scissors className="w-4 h-4 text-amber-400" /> },
+    { id: 'laser_cnc', label: 'ورقکاری و برش لیزر', tooltip: 'طراحی یراق‌آلات فلزی، سوراخکاری لیزر و ماکروی SheetMetal سالیدورک', icon: <Flame className="w-4 h-4 text-cyan-400" /> },
     { id: 'procurement', label: 'لیست اقلام خرید', tooltip: 'استخراج متراژ نوار، تعداد ورق MDF، لولا، ریل و برآورد بودجه', icon: <ShoppingCart className="w-4 h-4" /> },
     { id: 'standard_parts', label: 'قطعات استاندارد', tooltip: 'مدلسازی پیچ‌های DIN/ISO، پروفیل‌های صنعتی و اتصالات', icon: <Package className="w-4 h-4" /> },
     { id: 'hardware', label: 'یراق و اتصالات', tooltip: 'مدلسازی لولا گازور ۳۵mm، ریل ۳ زمانه، الیت و دستگیره مخفی', icon: <Wrench className="w-4 h-4" /> },
@@ -72,6 +91,20 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Status Badge & Action Controls */}
         <div className="flex items-center gap-4">
+          {onOpenScenarioModal && (
+            <button
+              onClick={onOpenScenarioModal}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+              title="مدیریت و بارگذاری سناریوهای طراحی ذخیره شده در مرورگر"
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-emerald-200" />
+              <span>پروژه‌های ذخیره‌شده</span>
+              <span className="bg-emerald-800 text-emerald-100 px-1.5 py-0.2 text-[10px] rounded-full font-mono">
+                {savedCount}
+              </span>
+            </button>
+          )}
+
           <div 
             className="flex items-center gap-2 text-xs text-slate-200 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700"
             title="وضعیت برقراری ارتباط زنده با نرم‌افزار SolidWorks روی سیستم شما"

@@ -9,6 +9,7 @@ import {
   Check, 
   Sparkles, 
   Save, 
+  FolderOpen,
   Brain, 
   Wand2, 
   CheckCircle2, 
@@ -25,6 +26,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { getLearnedPatterns, saveLearnedPattern } from '../utils/learningEngine';
+import { saveAutosaveState } from '../utils/scenarioStorage';
 import { MurphyBed3DViewer } from './3d/MurphyBed3DViewer';
 
 export interface MurphyBedParams {
@@ -125,13 +127,28 @@ export const DEFAULT_MURPHY_BED: MurphyBedParams = {
   finishColor: '#3b82f6'
 };
 
-export const MurphyBedStudio: React.FC = () => {
-  const [params, setParams] = useState<MurphyBedParams>(DEFAULT_MURPHY_BED);
+interface MurphyBedStudioProps {
+  initialParams?: MurphyBedParams;
+  onOpenScenarioModal?: () => void;
+}
+
+export const MurphyBedStudio: React.FC<MurphyBedStudioProps> = ({ initialParams, onOpenScenarioModal }) => {
+  const [params, setParams] = useState<MurphyBedParams>(initialParams || DEFAULT_MURPHY_BED);
   const [activeOutputTab, setActiveOutputTab] = useState<'welding_bom' | 'mdf_bom' | 'vba_macro'>('welding_bom');
   const [copied, setCopied] = useState<boolean>(false);
   const [learnedPatterns, setLearnedPatterns] = useState<any[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
   const [userFeedbackNote, setUserFeedbackNote] = useState<string>('');
+
+  useEffect(() => {
+    if (initialParams) {
+      setParams(initialParams);
+    }
+  }, [initialParams]);
+
+  useEffect(() => {
+    saveAutosaveState('murphy_bed', params);
+  }, [params]);
 
   // Custom Mechanisms State
   const [customMechanisms, setCustomMechanisms] = useState<CustomBedMechanism[]>([]);
@@ -424,6 +441,17 @@ End Sub
         </div>
 
         <div className="flex items-center gap-2">
+          {onOpenScenarioModal && (
+            <button
+              onClick={onOpenScenarioModal}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition"
+              title="ذخیره یا بارگذاری پروژه‌ها از LocalStorage"
+            >
+              <FolderOpen className="w-4 h-4 text-blue-200" />
+              مدیریت پروژه‌ها / ذخیره سناریو
+            </button>
+          )}
+
           <button
             onClick={() => setIsAddingMechanism(true)}
             className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition"

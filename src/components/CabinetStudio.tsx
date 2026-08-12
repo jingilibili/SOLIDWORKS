@@ -4,6 +4,7 @@ import { DEFAULT_CABINET_PRESETS } from '../data/cabinetPresets';
 import { generateCabinetMacro } from '../utils/macroGenerators';
 import { Cabinet3DViewer } from './3d/Cabinet3DViewer';
 import { getLearnedPatterns, saveLearnedPattern, getSmartSuggestion } from '../utils/learningEngine';
+import { saveAutosaveState, saveScenario } from '../utils/scenarioStorage';
 import { 
   Box, 
   Copy, 
@@ -20,16 +21,32 @@ import {
   Brain, 
   Wand2, 
   Save, 
+  FolderOpen,
   BookOpen 
 } from 'lucide-react';
 
-export const CabinetStudio: React.FC = () => {
-  const [params, setParams] = useState<CabinetParams>(DEFAULT_CABINET_PRESETS[0]);
+interface CabinetStudioProps {
+  initialParams?: CabinetParams;
+  onOpenScenarioModal?: () => void;
+}
+
+export const CabinetStudio: React.FC<CabinetStudioProps> = ({ initialParams, onOpenScenarioModal }) => {
+  const [params, setParams] = useState<CabinetParams>(initialParams || DEFAULT_CABINET_PRESETS[0]);
   const [activeOutputTab, setActiveOutputTab] = useState<'bom' | 'vba' | 'python' | 'pyautogui' | 'bat'>('bom');
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [interactiveMode, setInteractiveMode] = useState<boolean>(false);
   const [learnedPatterns, setLearnedPatterns] = useState<LearnedPattern[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialParams) {
+      setParams(initialParams);
+    }
+  }, [initialParams]);
+
+  useEffect(() => {
+    saveAutosaveState('cabinet', params);
+  }, [params]);
 
   useEffect(() => {
     setLearnedPatterns(getLearnedPatterns());
@@ -117,6 +134,17 @@ export const CabinetStudio: React.FC = () => {
 
         {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-3">
+          {onOpenScenarioModal && (
+            <button
+              onClick={onOpenScenarioModal}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition"
+              title="ذخیره یا بارگذاری پروژه‌ها از LocalStorage"
+            >
+              <FolderOpen className="w-4 h-4 text-blue-200" />
+              مدیریت پروژه‌ها / ذخیره سناریو
+            </button>
+          )}
+
           <button
             onClick={() => setInteractiveMode(!interactiveMode)}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 ${

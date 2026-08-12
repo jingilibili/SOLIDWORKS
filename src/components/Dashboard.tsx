@@ -16,7 +16,9 @@ import {
   FileCode2,
   Terminal,
   Home,
-  ShoppingCart
+  ShoppingCart,
+  Scissors,
+  Flame
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -174,7 +176,35 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
         {/* Secondary Tools & Assistant Shortcuts */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {/* Nesting Optimizer */}
+          <div
+            onClick={() => setActiveTab('nesting')}
+            className="cursor-pointer bg-white hover:bg-amber-50/40 border border-slate-200 hover:border-amber-400 p-4 rounded-2xl flex items-center gap-3 transition-all shadow-sm hover:shadow-md"
+          >
+            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl border border-amber-200">
+              <Scissors className="w-5 h-5" />
+            </div>
+            <div>
+              <h5 className="text-xs font-bold text-[#0f172a]">چیدمان برش MDF</h5>
+              <p className="text-[10px] text-slate-500">پورتال Nesting و کمترین ضایعات</p>
+            </div>
+          </div>
+
+          {/* Laser CNC & Sheet Metal */}
+          <div
+            onClick={() => setActiveTab('laser_cnc')}
+            className="cursor-pointer bg-white hover:bg-cyan-50/40 border border-slate-200 hover:border-cyan-400 p-4 rounded-2xl flex items-center gap-3 transition-all shadow-sm hover:shadow-md"
+          >
+            <div className="p-2.5 bg-cyan-50 text-cyan-600 rounded-xl border border-cyan-200">
+              <Flame className="w-5 h-5" />
+            </div>
+            <div>
+              <h5 className="text-xs font-bold text-[#0f172a]">ورقکاری و لیزر CNC</h5>
+              <p className="text-[10px] text-slate-500">طراحی یراق، پایه و SheetMetal</p>
+            </div>
+          </div>
+
           {/* Standard Parts */}
           <div
             onClick={() => setActiveTab('standard_parts')}
