@@ -1,0 +1,6 @@
+{
+  "name": "دستیار هوشمند سالیدورک (SolidWorks CAD Master)",
+  "description": "دستیار کامل سالیدورک به زبان فارسی: طراحی پارامتریک کابینت آشپزخانه، قطعات سی‌ان‌سی تراش، یراق‌آلات، تولید ماکروی مستقیم SWP و اسکریپت‌های پایتون، راهنمای جامع آفلاین و خودکارسازی.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
