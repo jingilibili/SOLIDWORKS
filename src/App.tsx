@@ -2,14 +2,17 @@ import React, { useState } from 'react';
 import { ActiveTab, CabinetParams } from './types';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
+import { RoomPlannerStudio } from './components/RoomPlannerStudio';
 import { CabinetStudio } from './components/CabinetStudio';
 import { MurphyBedStudio } from './components/MurphyBedStudio';
+import { ProcurementStudio } from './components/ProcurementStudio';
 import { StandardPartsStudio } from './components/StandardPartsStudio';
 import { HardwareStudio } from './components/HardwareStudio';
 import { CncLatheStudio } from './components/CncLatheStudio';
 import { VoiceCadAssistant } from './components/VoiceCadAssistant';
 import { StepByStepWizard } from './components/StepByStepWizard';
 import { ManualKB } from './components/ManualKB';
+import { MacroGuideStudio } from './components/MacroGuideStudio';
 import { SolidWorksLinkModal } from './components/SolidWorksLinkModal';
 import { AiAssistant } from './components/AiAssistant';
 
@@ -53,9 +56,15 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'room_planner' && (
+          <RoomPlannerStudio onOpenShoppingList={() => setActiveTab('procurement')} />
+        )}
+
         {activeTab === 'cabinet' && <CabinetStudio />}
 
         {activeTab === 'murphy_bed' && <MurphyBedStudio />}
+
+        {activeTab === 'procurement' && <ProcurementStudio />}
 
         {activeTab === 'standard_parts' && <StandardPartsStudio />}
 
@@ -70,6 +79,10 @@ export default function App() {
         )}
 
         {activeTab === 'wizard' && <StepByStepWizard />}
+
+        {activeTab === 'macro_guide' && (
+          <MacroGuideStudio onNavigateTab={(tab) => setActiveTab(tab)} />
+        )}
 
         {activeTab === 'manual' && <ManualKB />}
 

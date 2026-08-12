@@ -4,13 +4,16 @@
 
 export type ActiveTab = 
   | 'dashboard' 
+  | 'room_planner'
   | 'cabinet' 
   | 'murphy_bed'
+  | 'procurement'
   | 'standard_parts'
   | 'hardware' 
   | 'cnc' 
-  | 'wizard' 
   | 'voice_cad'
+  | 'wizard' 
+  | 'macro_guide'
   | 'manual' 
   | 'solidworks_link' 
   | 'ai_assistant';

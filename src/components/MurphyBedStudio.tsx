@@ -17,9 +17,15 @@ import {
   Hammer,
   Settings,
   ShieldAlert,
-  Edit3
+  Edit3,
+  Plus,
+  Trash2,
+  Box,
+  Sliders,
+  HelpCircle
 } from 'lucide-react';
 import { getLearnedPatterns, saveLearnedPattern } from '../utils/learningEngine';
+import { MurphyBed3DViewer } from './3d/MurphyBed3DViewer';
 
 export interface MurphyBedParams {
   id: string;
@@ -40,7 +46,7 @@ export interface MurphyBedParams {
   // Hydraulic Pistons & Hardware (جک هیدرولیک و مکانیزم)
   pistonForceN: 800 | 1000 | 1200 | 1500;
   pistonCount: number; // usually 2
-  mechanismBrand: 'Hafele' | 'HTN' | 'Balu' | 'Custom_Iran';
+  mechanismBrand: string;
 
   // Side Wardrobes (کمدهای جانبی)
   hasLeftSideWardrobe: boolean;
@@ -53,6 +59,46 @@ export interface MurphyBedParams {
   materialThickness: number; // mm (16 or 18)
   finishColor: string;
 }
+
+export interface CustomBedMechanism {
+  id: string;
+  name: string;
+  profileSize: '30x50x2' | '40x40x2' | '30x30x2' | '40x60x2';
+  boxClearanceMm: number; // clearance gap between wooden box inner wall and metal frame
+  pivotHeightMm: number; // pivot pin height from floor
+  pistonMountDistanceMm: number;
+  pistonForceN: 800 | 1000 | 1200 | 1500;
+  legType: 'automatic' | 'manual_u_shape' | 'foldable_corner';
+  notes: string;
+  createdAt: string;
+}
+
+export const DEFAULT_CUSTOM_MECHANISMS: CustomBedMechanism[] = [
+  {
+    id: 'mech-iran-hd1200',
+    name: 'مکانیزم سنگین کارگاهی - مدل H1200 (بادخور ۶۰mm)',
+    profileSize: '30x50x2',
+    boxClearanceMm: 60,
+    pivotHeightMm: 250,
+    pistonMountDistanceMm: 300,
+    pistonForceN: 1200,
+    legType: 'automatic',
+    notes: 'مکانیزم استاندارد کارگاهی با جک ۱۲۰۰ نیوتون ترکیه و پایه‌های تاشو اتوماتیک',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'mech-compact-900',
+    name: 'مکانیزم کم‌حجم تک‌نفره (بادخور ۵۰mm)',
+    profileSize: '30x30x2',
+    boxClearanceMm: 50,
+    pivotHeightMm: 220,
+    pistonMountDistanceMm: 250,
+    pistonForceN: 800,
+    legType: 'manual_u_shape',
+    notes: 'ویژه تخت‌های تک‌نفره کم‌حجم با پایه U شکل دستی',
+    createdAt: new Date().toISOString()
+  }
+];
 
 export const DEFAULT_MURPHY_BED: MurphyBedParams = {
   id: 'mb-default-160',
@@ -69,7 +115,7 @@ export const DEFAULT_MURPHY_BED: MurphyBedParams = {
   slatRibCount: 8,
   pistonForceN: 1200,
   pistonCount: 2,
-  mechanismBrand: 'Custom_Iran',
+  mechanismBrand: 'مکانیزم سنگین کارگاهی - مدل H1200',
   hasLeftSideWardrobe: true,
   leftWardrobeWidth: 500,
   hasRightSideWardrobe: true,
@@ -81,15 +127,102 @@ export const DEFAULT_MURPHY_BED: MurphyBedParams = {
 
 export const MurphyBedStudio: React.FC = () => {
   const [params, setParams] = useState<MurphyBedParams>(DEFAULT_MURPHY_BED);
-  const [activeOutputTab, setActiveOutputTab] = useState<'welding_bom' | 'mdf_bom' | 'vba_macro' | 'python_com'>('welding_bom');
+  const [activeOutputTab, setActiveOutputTab] = useState<'welding_bom' | 'mdf_bom' | 'vba_macro'>('welding_bom');
   const [copied, setCopied] = useState<boolean>(false);
   const [learnedPatterns, setLearnedPatterns] = useState<any[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
   const [userFeedbackNote, setUserFeedbackNote] = useState<string>('');
 
+  // Custom Mechanisms State
+  const [customMechanisms, setCustomMechanisms] = useState<CustomBedMechanism[]>([]);
+  const [selectedMechanismId, setSelectedMechanismId] = useState<string>('mech-iran-hd1200');
+  const [isAddingMechanism, setIsAddingMechanism] = useState<boolean>(false);
+
+  // New Mechanism Form State
+  const [newMech, setNewMech] = useState<Omit<CustomBedMechanism, 'id' | 'createdAt'>>({
+    name: 'مکانیزم دست‌ساز کارگاه من - مدل سفارشی',
+    profileSize: '30x50x2',
+    boxClearanceMm: 60,
+    pivotHeightMm: 250,
+    pistonMountDistanceMm: 300,
+    pistonForceN: 1200,
+    legType: 'automatic',
+    notes: 'مکانیزم کلاف فلزی اختصاصی کارگاه با لقی‌های ویژه'
+  });
+
   useEffect(() => {
     setLearnedPatterns(getLearnedPatterns());
+
+    // Load custom mechanisms from localStorage
+    const saved = localStorage.getItem('SW_CUSTOM_BED_MECHANISMS');
+    if (saved) {
+      try {
+        setCustomMechanisms(JSON.parse(saved));
+      } catch (e) {
+        setCustomMechanisms(DEFAULT_CUSTOM_MECHANISMS);
+      }
+    } else {
+      setCustomMechanisms(DEFAULT_CUSTOM_MECHANISMS);
+      localStorage.setItem('SW_CUSTOM_BED_MECHANISMS', JSON.stringify(DEFAULT_CUSTOM_MECHANISMS));
+    }
   }, []);
+
+  const saveCustomMechanismsToStorage = (list: CustomBedMechanism[]) => {
+    setCustomMechanisms(list);
+    localStorage.setItem('SW_CUSTOM_BED_MECHANISMS', JSON.stringify(list));
+  };
+
+  const handleSelectMechanism = (mechId: string) => {
+    setSelectedMechanismId(mechId);
+    const mech = customMechanisms.find((m) => m.id === mechId);
+    if (mech) {
+      setParams((prev) => ({
+        ...prev,
+        steelProfileSize: mech.profileSize,
+        pistonForceN: mech.pistonForceN,
+        metalLegType: mech.legType,
+        mechanismBrand: mech.name
+      }));
+      setNotification(`مکانیزم اختصاصی "${mech.name}" با موفقیت بر روی نقشه سه‌بعدی و محاسبات اعمال گردید.`);
+      setTimeout(() => setNotification(null), 3500);
+    }
+  };
+
+  const handleCreateNewMechanism = () => {
+    if (!newMech.name.trim()) {
+      alert('لطفاً یک نام برای مکانیزم اختصاصی خود وارد کنید.');
+      return;
+    }
+
+    const created: CustomBedMechanism = {
+      ...newMech,
+      id: 'custom-mech-' + Date.now(),
+      createdAt: new Date().toISOString()
+    };
+
+    const updated = [created, ...customMechanisms];
+    saveCustomMechanismsToStorage(updated);
+    setSelectedMechanismId(created.id);
+    setParams((prev) => ({
+      ...prev,
+      steelProfileSize: created.profileSize,
+      pistonForceN: created.pistonForceN,
+      metalLegType: created.legType,
+      mechanismBrand: created.name
+    }));
+
+    setIsAddingMechanism(false);
+    setNotification(`مکانیزم اختصاصی "${created.name}" به سیستم آموزش داده شد و ذخیره گردید.`);
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  const handleDeleteMechanism = (mechId: string) => {
+    const updated = customMechanisms.filter((m) => m.id !== mechId);
+    saveCustomMechanismsToStorage(updated);
+    if (updated.length > 0) {
+      handleSelectMechanism(updated[0].id);
+    }
+  };
 
   const handleBedTypeChange = (type: MurphyBedParams['bedType']) => {
     let w = 1600;
@@ -157,9 +290,13 @@ export const MurphyBedStudio: React.FC = () => {
     setTimeout(() => setNotification(null), 4000);
   };
 
+  // Active custom mechanism clearance gap
+  const activeMech = customMechanisms.find((m) => m.id === selectedMechanismId);
+  const clearanceGap = activeMech ? activeMech.boxClearanceMm : 60;
+
   // Metal Frame Welding Cut List Calculation
   const getSteelWeldingBOM = () => {
-    const frameW = params.width + 10; // Clearance
+    const frameW = params.width + 10; // Mattress clearance
     const frameL = params.length + 10;
     const profile = params.steelProfileSize;
 
@@ -167,16 +304,16 @@ export const MurphyBedStudio: React.FC = () => {
       { part: 'پروفیل طولی کلاف اصلی', qty: 2, lengthMm: frameL, material: profile, notes: 'کلاف فلزی دور تخت' },
       { part: 'پروفیل عرضی کلاف اصلی', qty: 2, lengthMm: frameW, material: profile, notes: 'کلاف فلزی دور تخت' },
       { part: 'پل‌های عرضی تقویت‌کننده (کفی)', qty: params.slatRibCount, lengthMm: frameW - 60, material: profile, notes: 'تسمه/قوطی تقسیم وزن تشک' },
-      { part: 'پایه‌های فلزی تاشو (چرخشی/اتوماتیک)', qty: 2, lengthMm: 350, material: 'پایه فلزی سنگین مانیسمان', notes: 'مکانیزم بازشو جلو' },
-      { part: 'صفحه فلزی اتصال جک به کلاف (پلینی)', qty: 2, lengthMm: 200, material: 'ورق فولادی ۳ میلیمتر CNC', notes: 'سوراخکاری پین جک ۱۲ میلیمتر' },
+      { part: `پایه‌های فلزی تاشو (${params.metalLegType === 'automatic' ? 'اتوماتیک چرخشی' : 'دستی U شکل'})`, qty: 2, lengthMm: 350, material: 'پایه فلزی سنگین', notes: 'مکانیزم بازشو جلو' },
+      { part: 'صفحه فلزی اتصال جک به کلاف', qty: 2, lengthMm: 200, material: 'ورق فولادی ۳ میلیمتر CNC', notes: `سوراخکاری پین جک ${params.pistonForceN}N` },
       { part: 'نبشی‌های کنج کلاف (تقویت جوش)', qty: 4, lengthMm: 80, material: 'نبشی ۴۰×۴۰', notes: 'جوش Co2 گوشه کلاف' }
     ];
   };
 
-  // MDF Enclosure Box Cut List
+  // MDF Enclosure Box Cut List based on active clearance gap
   const getWoodCutList = () => {
     const t = params.materialThickness;
-    const boxW = params.width + 120; // 60mm clearances each side for mechanisms
+    const boxW = params.width + clearanceGap * 2; // Uses user taught clearance gap!
     const boxH = params.boxHeight;
     const depth = params.depth;
 
@@ -211,8 +348,8 @@ export const MurphyBedStudio: React.FC = () => {
   const generateSolidWorksVbaMacro = () => {
     return `' ==============================================================================
 ' SolidWorks Master - Parametric VBA Macro for Murphy Bed Steel Frame & Wood Box
-' Designed for Metal Frame Manufacturers & Woodwork Customizers
-' Bed Size: ${params.width} x ${params.length} mm | Piston: ${params.pistonForceN}N
+' Custom Trained Mechanism: ${params.mechanismBrand}
+' Bed Size: ${params.width} x ${params.length} mm | Piston: ${params.pistonForceN}N | Clearance: ${clearanceGap}mm
 ' ==============================================================================
 Sub main()
     Dim swApp As Object
@@ -228,7 +365,7 @@ Sub main()
     ' Dimensions in Meters
     Dim FrameW As Double: FrameW = ${(params.width + 10) / 1000}
     Dim FrameL As Double: FrameL = ${(params.length + 10) / 1000}
-    Dim BoxW As Double: BoxW = ${(params.width + 120) / 1000}
+    Dim BoxW As Double: BoxW = ${(params.width + clearanceGap * 2) / 1000}
     Dim BoxH As Double: BoxH = ${params.boxHeight / 1000}
     Dim BoxD As Double: BoxD = ${params.depth / 1000}
 
@@ -238,7 +375,7 @@ Sub main()
     Part.SketchManager.CreateRectangle 0, 0, 0, FrameW, FrameL, 0
     Part.SketchManager.InsertSketch True
 
-    ' Structural Member / Extrude 30x50 Steel Tube Profile
+    ' Structural Member / Extrude Steel Tube Profile (${params.steelProfileSize})
     Dim myFeature As Object
     Set myFeature = Part.FeatureManager.FeatureExtrude2(True, False, False, 0, 0, 0.05, 0.03, False, False, False, False, 0, 0, False, False, False, False, True, True, True, 0, 0, False)
 
@@ -246,7 +383,7 @@ Sub main()
     Dim i As Integer
     Dim Spacing As Double: Spacing = FrameL / (${params.slatRibCount} + 1)
     For i = 1 To ${params.slatRibCount}
-        ' Sketch Rib at Spacing * i
+        ' Sketch Cross Rib at Spacing * i
     Next i
 
     ' Set Steel Structural Material
@@ -279,28 +416,214 @@ End Sub
             <Bed className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-[#0f172a]">طراحی تخصصی اتاق خواب و تخت‌خواب تاشو (Murphy Bed & Metal Frame Studio)</h2>
+            <h2 className="text-xl font-bold text-[#0f172a]">طراحی تخصصی اتاق خواب و تخت‌خواب تاشو (Murphy Bed & 3D Studio)</h2>
             <p className="text-xs text-slate-500">
-              طراحی هوشمند کلاف فلزی، مکانیزم جک هیدرولیک، کمدهای جانبی و تولید ماکروی جوشکاری و برش MDF
+              طراحی سه بعدی کلاف فلزی، باکس MDF، جک هیدرولیک، کمدهای جانبی و آموزش مکانیزم‌های اختصاصی به برنامه
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setIsAddingMechanism(true)}
+            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition"
+            title="تعریف و آموزش مکانیزم و کلاف‌های فلزی دست‌ساز کارگاه خودتان به سیستم"
+          >
+            <Plus className="w-4 h-4" />
+            ➕ آموزش مکانیزم اختصاصی جدید
+          </button>
+
+          <button
             onClick={handleSaveToLearning}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition"
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition"
+            title="ذخیره پارامترهای جاری در حافظه هوشمند آفلاین"
           >
             <Save className="w-4 h-4" />
-            ذخیره الگو در حافظه سیستم
+            ذخیره الگو
           </button>
         </div>
       </div>
 
+      {/* 3D INTERACTIVE VISUALIZER PANEL */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-[#0f172a] flex items-center gap-2">
+            <Box className="w-4 h-4 text-indigo-600" />
+            نمای طراحی سه بعدی زنده تخت تاشو و کلاف فلزی (3D Canvas)
+          </h3>
+          <span className="text-xs text-slate-500 font-medium">
+            با کشیدن موس مدل را بچرخانید • لغزنده را برای باز و بسته شدن حرکت دهید
+          </span>
+        </div>
+
+        <MurphyBed3DViewer params={params} customMechanismName={params.mechanismBrand} />
+      </div>
+
+      {/* TEACH CUSTOM MECHANISM MODAL / DRAWER */}
+      {isAddingMechanism && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl shadow-2xl border border-indigo-500/40 space-y-4 animate-fade-in text-right">
+          <div className="flex items-center justify-between border-b border-indigo-800/60 pb-3">
+            <div className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-indigo-400" />
+              <h3 className="text-base font-bold text-white">
+                آموزش و ثبت مکانیزم کلاف فلزی اختصاصی کارگاه شما به برنامه
+              </h3>
+            </div>
+            <button
+              onClick={() => setIsAddingMechanism(false)}
+              className="text-slate-400 hover:text-white text-xs font-bold px-3 py-1 bg-slate-800 rounded-lg"
+            >
+              انصراف ✖
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed">
+            اگر شما کلاف‌های فلزی یا مکانیزم‌های بازشوی اختصاصی تولید می‌کنید، ابعاد و لقی‌های آن را در زیر وارد کنید تا برنامه تمام نقشه‌ها، برش MDF و ماکروها را طبق مشخصات کلاف شما تولید کند:
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            {/* Mechanism Name */}
+            <div className="col-span-1 md:col-span-2 space-y-1">
+              <label className="text-indigo-200 font-bold">نام مکانیزم یا مدل ساخت کارگاه شما:</label>
+              <input
+                type="text"
+                value={newMech.name}
+                onChange={(e) => setNewMech({ ...newMech, name: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white font-bold focus:border-indigo-400"
+                placeholder="مثلاً: مکانیزم سنگین اختصاصی کارگاه - مدل 1400"
+              />
+            </div>
+
+            {/* Profile Size */}
+            <div className="space-y-1">
+              <label className="text-indigo-200 font-bold">سایز قوطی فولادی کلاف:</label>
+              <select
+                value={newMech.profileSize}
+                onChange={(e) => setNewMech({ ...newMech, profileSize: e.target.value as any })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white font-bold focus:border-indigo-400"
+              >
+                <option value="30x50x2">قوطی ۳۰ × ۵۰ با ضخامت ۲mm</option>
+                <option value="40x40x2">قوطی ۴۰ × ۴۰ با ضخامت ۲mm</option>
+                <option value="30x30x2">قوطی ۳۰ × ۳۰ با ضخامت ۲mm</option>
+                <option value="40x60x2">قوطی ۴۰ × ۶۰ با ضخامت ۲mm</option>
+              </select>
+            </div>
+
+            {/* Box Clearance Gap */}
+            <div className="space-y-1">
+              <label className="text-indigo-200 font-bold">میزان بادخور/فاصله از دیواره چوبی (mm):</label>
+              <input
+                type="number"
+                value={newMech.boxClearanceMm}
+                onChange={(e) => setNewMech({ ...newMech, boxClearanceMm: Number(e.target.value) })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white font-mono focus:border-indigo-400"
+                placeholder="60"
+              />
+              <span className="text-[10px] text-slate-400">فاصله جک و لولا از دیواره باکس MDF (مثلاً ۵۰ یا ۶۰mm)</span>
+            </div>
+
+            {/* Pivot Height */}
+            <div className="space-y-1">
+              <label className="text-indigo-200 font-bold">ارتفاع محور چرخش از کف زمین (mm):</label>
+              <input
+                type="number"
+                value={newMech.pivotHeightMm}
+                onChange={(e) => setNewMech({ ...newMech, pivotHeightMm: Number(e.target.value) })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white font-mono focus:border-indigo-400"
+                placeholder="250"
+              />
+            </div>
+
+            {/* Piston Force */}
+            <div className="space-y-1">
+              <label className="text-indigo-200 font-bold">قدرت جک هیدرولیک پیشنهادی:</label>
+              <select
+                value={newMech.pistonForceN}
+                onChange={(e) => setNewMech({ ...newMech, pistonForceN: Number(e.target.value) as any })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white font-bold focus:border-indigo-400"
+              >
+                <option value={800}>800 Newton</option>
+                <option value={1000}>1000 Newton</option>
+                <option value={1200}>1200 Newton</option>
+                <option value={1500}>1500 Newton</option>
+              </select>
+            </div>
+
+            {/* Leg Type */}
+            <div className="space-y-1">
+              <label className="text-indigo-200 font-bold">نوع پایه جلوی تخت:</label>
+              <select
+                value={newMech.legType}
+                onChange={(e) => setNewMech({ ...newMech, legType: e.target.value as any })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white font-bold focus:border-indigo-400"
+              >
+                <option value="automatic">پایه چرخشی اتوماتیک</option>
+                <option value="manual_u_shape">پایه U شکل دستی</option>
+                <option value="foldable_corner">پایه گوشه‌ای تاشو</option>
+              </select>
+            </div>
+
+            {/* Notes */}
+            <div className="col-span-1 md:col-span-2 space-y-1">
+              <label className="text-indigo-200 font-bold">توضیحات و نکات جوشکاری کارگاه:</label>
+              <input
+                type="text"
+                value={newMech.notes}
+                onChange={(e) => setNewMech({ ...newMech, notes: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white focus:border-indigo-400"
+                placeholder="نکات مونتاژ و جوشکاری..."
+              />
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center justify-end gap-2">
+            <button
+              onClick={handleCreateNewMechanism}
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-1.5"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              ذخیره و آموزش مکانیزم به سیستم
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Grid: Left Controls (5 cols), Right 3D & Specs (7 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Parametric Controls (5 cols) */}
+        {/* Left Column: Parametric Controls & Custom Mechanisms (5 cols) */}
         <div className="lg:col-span-5 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-5 text-right">
+          {/* Custom Mechanism Selector Bar */}
+          <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                <Sliders className="w-4 h-4 text-indigo-600" />
+                مکانیزم فعال و آموزش‌دیده:
+              </label>
+              <span className="text-[10px] bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded font-bold">
+                {customMechanisms.length} مکانیزم ذخیره شده
+              </span>
+            </div>
+
+            <select
+              value={selectedMechanismId}
+              onChange={(e) => handleSelectMechanism(e.target.value)}
+              className="w-full bg-white border border-indigo-300 rounded-xl p-2.5 text-xs text-indigo-950 font-bold focus:border-indigo-600 shadow-sm"
+            >
+              {customMechanisms.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} (بادخور {m.boxClearanceMm}mm)
+                </option>
+              ))}
+            </select>
+
+            {activeMech && (
+              <div className="text-[11px] text-indigo-900 leading-relaxed bg-white/80 p-2 rounded-lg border border-indigo-100 space-y-1">
+                <div>• قوطی کلاف: <strong>{activeMech.profileSize}</strong> | بادخور دیواره: <strong>{activeMech.boxClearanceMm}mm</strong></div>
+                <div>• قدرت جک: <strong>{activeMech.pistonForceN}N</strong> | نوع پایه: <strong>{activeMech.legType === 'automatic' ? 'اتوماتیک' : 'دستی'}</strong></div>
+              </div>
+            )}
+          </div>
+
           <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
             <h3 className="text-sm font-bold text-[#0f172a] flex items-center gap-2">
               <Settings className="w-4 h-4 text-indigo-600" />
@@ -377,7 +700,7 @@ End Sub
             <div className="col-span-2 space-y-1">
               <label className="text-slate-700 font-bold text-indigo-900 flex items-center gap-1">
                 <Hammer className="w-3.5 h-3.5 text-indigo-600" />
-                سایز پروفیل قوطی کلاف فلزی (دستساز/صنعتی):
+                سایز پروفیل قوطی کلاف فلزی:
               </label>
               <select
                 value={params.steelProfileSize}

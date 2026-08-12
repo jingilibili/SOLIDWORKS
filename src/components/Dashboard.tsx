@@ -14,7 +14,9 @@ import {
   Zap,
   Layers,
   FileCode2,
-  Terminal
+  Terminal,
+  Home,
+  ShoppingCart
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -88,7 +90,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Room Planner Studio */}
+          <div
+            onClick={() => setActiveTab('room_planner')}
+            className="group cursor-pointer bg-white hover:bg-blue-50/40 border border-slate-200 hover:border-blue-500 p-6 rounded-2xl transition-all shadow-sm hover:shadow-md space-y-3"
+          >
+            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200 group-hover:scale-105 transition-transform">
+              <Home className="w-6 h-6" />
+            </div>
+            <h4 className="text-base font-bold text-[#0f172a] group-hover:text-blue-700 transition-colors">
+              طراحی هوشمند متراژ
+            </h4>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              طراحی اتوماتیک چیدمان کامل آشپزخانه و اتاق خواب بر اساس ابعاد، زوایا و جای تأسیسات.
+            </p>
+            <div className="pt-2 flex items-center text-xs font-bold text-blue-600 gap-1 group-hover:translate-x-[-4px] transition-transform">
+              ورود به استودیو متراژ
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </div>
+          </div>
+
           {/* Cabinet Studio */}
           <div
             onClick={() => setActiveTab('cabinet')}
@@ -101,9 +123,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
               طراحی هوشمند کابینت MDF
             </h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              طراحی یونیت‌های زمینی و دیواری، محاسبه بادخور درب، جدول برش قطعات، نوار PVC و تولید خودکار ماکروی سه بعدی.
+              طراحی یونیت‌های زمینی و دیواری، محاسبه بادخور درب، جدول برش قطعات، نوار PVC و ماکرو.
             </p>
-            <div className="pt-2 flex items-center text-xs font-bold text-blue-600 gap-1 group-hover:translate-x-[-4px] transition-transform">
+            <div className="pt-2 flex items-center text-xs font-bold text-amber-600 gap-1 group-hover:translate-x-[-4px] transition-transform">
               ورود به استودیو کابینت
               <ArrowLeft className="w-3.5 h-3.5" />
             </div>
@@ -121,7 +143,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               طراحی یراق‌آلات و اتصالات
             </h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              مدلسازی انواع لولا گازور 35mm، ریل ساچمه‌ای، اتصالات الیت / مینی‌فیکس، دستگیره و گونیاهای نصب.
+              مدلسازی انواع لولا گازور 35mm، ریل ساچمه‌ای، اتصالات الیت / مینی‌فیکس و دستگیره.
             </p>
             <div className="pt-2 flex items-center text-xs font-bold text-teal-600 gap-1 group-hover:translate-x-[-4px] transition-transform">
               ورود به استودیو یراق
@@ -129,22 +151,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
 
-          {/* CNC Lathe Studio */}
+          {/* Procurement Shopping List */}
           <div
-            onClick={() => setActiveTab('cnc')}
-            className="group cursor-pointer bg-white hover:bg-blue-50/40 border border-slate-200 hover:border-blue-500 p-6 rounded-2xl transition-all shadow-sm hover:shadow-md space-y-3"
+            onClick={() => setActiveTab('procurement')}
+            className="group cursor-pointer bg-white hover:bg-emerald-50/40 border border-slate-200 hover:border-emerald-500 p-6 rounded-2xl transition-all shadow-sm hover:shadow-md space-y-3"
           >
-            <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-200 group-hover:scale-105 transition-transform">
-              <Cog className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-200 group-hover:scale-105 transition-transform">
+              <ShoppingCart className="w-6 h-6" />
             </div>
-            <h4 className="text-base font-bold text-[#0f172a] group-hover:text-blue-700 transition-colors">
-              طراحی قطعات تراشکاری CNC
+            <h4 className="text-base font-bold text-[#0f172a] group-hover:text-emerald-700 transition-colors">
+              لیست اقلام خرید و قیمت
             </h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              طراحی شفت‌های پله‌ای، رزوه زنی، فاز و شیار تراشکاری به همراه استخراج ماکروی Revolve و مسیر ابزار G-Code.
+              استخراج متراژ نوار PVC، تعداد ورق MDF، لولا، ریل، پروفیل قوطی و برآورد بودجه خرید.
             </p>
-            <div className="pt-2 flex items-center text-xs font-bold text-indigo-600 gap-1 group-hover:translate-x-[-4px] transition-transform">
-              ورود به استودیو تراشکاری
+            <div className="pt-2 flex items-center text-xs font-bold text-emerald-600 gap-1 group-hover:translate-x-[-4px] transition-transform">
+              مشاهده لیست خرید
               <ArrowLeft className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -213,6 +235,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div
             onClick={() => setActiveTab('manual')}
             className="cursor-pointer bg-white hover:bg-blue-50/30 border border-slate-200 p-4 rounded-2xl flex items-center gap-3 transition-all shadow-sm hover:shadow-md"
+            title="آموزش دستورات، کلیدهای میانبر و عیب‌یابی خطاهای سالیدورک"
           >
             <div className="p-2.5 bg-teal-50 text-teal-600 rounded-xl border border-teal-200">
               <BookOpen className="w-5 h-5" />
@@ -220,6 +243,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div>
               <h5 className="text-xs font-bold text-[#0f172a]">دانشنامه آفلاین</h5>
               <p className="text-[10px] text-slate-500">دستورات و کلیدهای میانبر</p>
+            </div>
+          </div>
+
+          {/* Macro Guide */}
+          <div
+            onClick={() => setActiveTab('macro_guide')}
+            className="cursor-pointer bg-white hover:bg-emerald-50/30 border border-slate-200 p-4 rounded-2xl flex items-center gap-3 transition-all shadow-sm hover:shadow-md"
+            title="کد ماکرو چیست و چگونه در سالیدورک اجرا می‌شود؟ راهنمای کامل"
+          >
+            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-200">
+              <FileCode2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h5 className="text-xs font-bold text-[#0f172a]">راهنمای جامع ماکرو</h5>
+              <p className="text-[10px] text-slate-500">آموزش اجرا و کارکردها</p>
             </div>
           </div>
         </div>
