@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ActiveTab } from './types';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
@@ -18,12 +18,22 @@ import { AiAssistant } from './components/AiAssistant';
 import { NestingStudio } from './components/NestingStudio';
 import { LaserCncStudio } from './components/LaserCncStudio';
 import { SavedScenariosModal } from './components/SavedScenariosModal';
+import { Studio3DEditor } from './components/Studio3DEditor';
 import { getAutosaveState } from './utils/scenarioStorage';
+import { solidWorksConnector, ConnectionStatus } from './services/SolidWorksConnector';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [isSwConnected, setIsSwConnected] = useState<boolean>(false);
   const [showNotification, setShowNotification] = useState<string | null>(null);
+  
+  // Connection monitoring
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>({
+    connected: false,
+    status: 'disconnected',
+    message: 'بررسی اتصال...',
+    timestamp: new Date(),
+  });
 
   // Scenario Management Modal State
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState<boolean>(false);
@@ -32,6 +42,35 @@ export default function App() {
     data: any;
     key: number;
   } | null>(null);
+
+  // Check SOLIDWORKS connection on mount and periodically
+  useEffect(() => {
+    const checkSolidWorksConnection = async () => {
+      try {
+        const status = await solidWorksConnector.checkConnection();
+        setConnectionStatus(status);
+        setIsSwConnected(status.connected);
+        
+        if (status.connected) {
+          setShowNotification('✅ اتصال به سرور SOLIDWORKS برقرار شد');
+          setTimeout(() => setShowNotification(null), 3000);
+        }
+      } catch (error) {
+        console.error('خطا در بررسی اتصال:', error);
+        setConnectionStatus({
+          connected: false,
+          status: 'error',
+          message: 'خطا در برقراری ارتباط با سرور SOLIDWORKS',
+          timestamp: new Date(),
+        });
+      }
+    };
+
+    checkSolidWorksConnection();
+    const interval = setInterval(checkSolidWorksConnection, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleConnectSw = () => {
     setIsSwConnected(true);
@@ -57,6 +96,25 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] text-[#1e293b] font-sans dir-rtl text-right antialiased selection:bg-blue-600 selection:text-white flex flex-col">
+      {/* Connection Status Alert */}
+      {!connectionStatus.connected && (
+        <div className="w-full bg-yellow-500 text-white p-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">⚠️</span>
+            <span className="text-sm font-semibold">{connectionStatus.message}</span>
+          </div>
+          <button
+            onClick={async () => {
+              const status = await solidWorksConnector.checkConnection();
+              setConnectionStatus(status);
+            }}
+            className="text-white hover:bg-yellow-600 px-3 py-1 rounded text-sm font-bold"
+          >
+            تلاش مجدد
+          </button>
+        </div>
+      )}
+
       {/* Top Bar Header */}
       <Header
         activeTab={activeTab}
@@ -99,6 +157,16 @@ export default function App() {
             key={loadedScenarioState?.tab === 'cabinet' ? loadedScenarioState.key : 'cab-default'}
             initialParams={loadedScenarioState?.tab === 'cabinet' ? loadedScenarioState.data : undefined}
             onOpenScenarioModal={() => setIsScenarioModalOpen(true)}
+          />
+        )}
+
+        {/* NEW: 3D Studio Cabinet Editor */}
+        {activeTab === '3d_studio' && (
+          <Studio3DEditor 
+            onSave={(config) => {
+              setShowNotification('✅ تغییرات کابینت 3D ذخیره شد');
+              setTimeout(() => setShowNotification(null), 3000);
+            }}
           />
         )}
 
@@ -172,7 +240,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 flex flex-wrap items-center justify-between gap-2">
           <span className="font-medium">دستیار هوشمند سالیدورک (SolidWorks Master) — نسخه پیشرفته و کارگاهی</span>
           <span className="font-semibold text-blue-400 border border-blue-500/30 px-3 py-1 rounded-lg bg-blue-500/10">
-            made by M.Naderi
+            ✨ اکنون با 3D Studio Interactive
           </span>
           <span className="font-mono text-[11px] text-slate-400">VBA Macro (.SWP) | Python win32com | PyAutoGUI Controller</span>
         </div>
