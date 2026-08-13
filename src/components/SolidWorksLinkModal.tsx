@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { generatePythonDesktopAppScript, generateBuildExeBat } from '../utils/pythonInstallerBuilder';
+import { generatePythonDesktopAppScript, generateBuildExeBat, generateRunDirectBat } from '../utils/pythonInstallerBuilder';
 import { 
   Link2, 
   Download, 
@@ -32,8 +32,11 @@ export const SolidWorksLinkModal: React.FC<SolidWorksLinkModalProps> = ({
   const [diagnosticLog, setDiagnosticLog] = useState<string[]>([]);
   const [testMacroSent, setTestMacroSent] = useState<boolean>(false);
 
+  const [copiedRunDirect, setCopiedRunDirect] = useState<boolean>(false);
+
   const pythonScript = generatePythonDesktopAppScript();
   const batScript = generateBuildExeBat();
+  const runDirectScript = generateRunDirectBat();
 
   const handleDownload = (filename: string, content: string) => {
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -251,9 +254,37 @@ export const SolidWorksLinkModal: React.FC<SolidWorksLinkModalProps> = ({
               </div>
             </div>
 
-            <pre className="p-3 bg-slate-900 text-amber-300 font-mono text-[11px] rounded-xl max-h-72 overflow-y-auto border border-slate-800 dir-ltr text-left">
+            <pre className="p-3 bg-slate-900 text-amber-300 font-mono text-[11px] rounded-xl max-h-48 overflow-y-auto border border-slate-800 dir-ltr text-left">
               {batScript}
             </pre>
+          </div>
+
+          {/* File 3: Direct Quick Launcher (No EXE build needed) */}
+          <div className="space-y-3 col-span-1 md:col-span-2">
+            <div className="flex items-center justify-between text-xs p-2.5 bg-emerald-50 rounded-lg border border-emerald-200">
+              <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-emerald-600 shrink-0" />
+                اجرای یک‌کلیکی بدون نیاز به ساخت فایل EXE (توصیه شده برای سرعت و بدون ارور)
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(runDirectScript);
+                    setCopiedRunDirect(true);
+                    setTimeout(() => setCopiedRunDirect(false), 2000);
+                  }}
+                  className="px-2.5 py-1 bg-white text-slate-700 rounded border border-emerald-300 hover:bg-emerald-100"
+                >
+                  {copiedRunDirect ? 'کپی شد' : 'کپی'}
+                </button>
+                <button
+                  onClick={() => handleDownload('run_direct.bat', runDirectScript)}
+                  className="px-2.5 py-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 font-bold"
+                >
+                  دانلود run_direct.bat
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

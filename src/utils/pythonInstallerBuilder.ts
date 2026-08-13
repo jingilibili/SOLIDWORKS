@@ -377,6 +377,45 @@ pause
 `;
 }
 
+export function generateRunDirectBat(): string {
+  return `@echo off
+cd /d "%~dp0"
+title SolidWorks Master Quick Launcher
+echo ============================================================
+echo   SolidWorks Master - Quick Launcher (No PyInstaller Needed)
+echo ============================================================
+echo.
+
+:: Check Python installation
+where python >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] Python is not installed or not added to system PATH!
+    echo Please download Python from https://www.python.org
+    echo IMPORTANT: Make sure to check "Add Python to PATH" during setup.
+    echo.
+    pause
+    exit /b 1
+)
+
+echo [1/2] Checking and installing required packages (pywin32, pyautogui)...
+python -m pip install pywin32 pyautogui
+
+echo.
+echo [2/2] Launching SolidWorks Master Desktop App...
+start "" python SolidWorks_Master_App.pyw
+
+if errorlevel 1 (
+    echo [Fallback] Trying pythonw...
+    start "" pythonw SolidWorks_Master_App.pyw
+)
+
+echo.
+echo [OK] Launch command sent! If app window opens, you can close this window.
+timeout /t 5 >nul
+exit
+`;
+}
+
 export function generateOfflineReadmeText(): string {
   return `============================================================
 راهنمای نصب و رفع خطاهای احتمالی ساخت فایل .EXE سالیدورک
