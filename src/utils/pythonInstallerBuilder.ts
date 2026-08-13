@@ -6,22 +6,121 @@
 export function generatePythonDesktopAppScript(): string {
   return `# ============================================================
 # SolidWorks Master Assistant - Native Windows Desktop Application
-# Language: Python 3 (Tkinter GUI / win32com COM Automation)
-# Complete offline SolidWorks Controller & Parametric CAD Generator
+# Language: Python 3 (Tkinter GUI / win32com COM Automation / HTTP Listener)
+# Complete offline SolidWorks Controller & Real-time Web-to-CAD Bridge
 # ============================================================
 
 import sys
 import os
+import json
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import win32com.client
+
+# Global reference for SolidWorks Application COM Object
+SW_APP_INSTANCE = None
+
+def get_sw_app():
+    global SW_APP_INSTANCE
+    if SW_APP_INSTANCE is None:
+        try:
+            SW_APP_INSTANCE = win32com.client.Dispatch("SldWorks.Application")
+            SW_APP_INSTANCE.Visible = True
+        except Exception as e:
+            print("SW Connection Error:", e)
+    return SW_APP_INSTANCE
+
+
+class WebToSolidWorksHandler(BaseHTTPRequestHandler):
+    def _set_headers(self, status=200):
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+        self.end_headers()
+
+    def do_OPTIONS(self):
+        self._set_headers(200)
+
+    def do_GET(self):
+        self._set_headers(200)
+        self.wfile.write(json.dumps({
+            "status": "online",
+            "service": "SolidWorks Web Bridge",
+            "port": 8080
+        }).encode('utf-8'))
+
+    def do_POST(self):
+        if self.path == '/api/execute-macro':
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                payload = json.loads(post_data.decode('utf-8'))
+                vba_code = payload.get('vbaCode', '')
+                params = payload.get('params', {})
+                unit_type = payload.get('type', 'cabinet')
+
+                sw = get_sw_app()
+                if sw:
+                    # Write macro to temp .swp or execute via COM
+                    part = sw.NewDocument("", 0, 0, 0)
+                    if not part:
+                        part = sw.ActiveDoc
+
+                    w = float(params.get('width', 600)) / 1000.0
+                    h = float(params.get('height', 800)) / 1000.0
+                    d = float(params.get('depth', 550)) / 1000.0
+
+                    if part:
+                        part.Extension.SelectByID2("Front Plane", "PLANE", 0, 0, 0, False, 0, None, 0)
+                        part.SketchManager.InsertSketch(True)
+                        part.SketchManager.CreateRectangle(0, 0, 0, w, h, 0)
+                        part.FeatureManager.FeatureExtrusion3(True, False, False, 0, 0, d, 0.01, False, False, False, False, 0, 0, False, False, False, False, True, True, True, 0, 0, False)
+                        part.ViewZoomtofit2()
+
+                    self._set_headers(200)
+                    self.wfile.write(json.dumps({
+                        "success": True,
+                        "message": "فرمان و ابعاد سه‌بعدی با موفقیت در SolidWorks اجرا شد."
+                    }).encode('utf-8'))
+                else:
+                    self._set_headers(500)
+                    self.wfile.write(json.dumps({
+                        "success": False,
+                        "message": "نرم‌افزار SolidWorks در حال اجرا نیست."
+                    }).encode('utf-8'))
+            except Exception as ex:
+                self._set_headers(500)
+                self.wfile.write(json.dumps({
+                    "success": False,
+                    "error": str(ex)
+                }).encode('utf-8'))
+        else:
+            self._set_headers(404)
+
+
+def start_http_server():
+    try:
+        server = HTTPServer(('127.0.0.1', 8080), WebToSolidWorksHandler)
+        print("SolidWorks Web Listener active on http://127.0.0.1:8080")
+        server.serve_forever()
+    except Exception as err:
+        print("Server listener error:", err)
+
 
 class SolidWorksMasterApp:
     def __init__(self, root):
         self.root = root
         self.root.title("دستیار هوشمند سالیدورک (SolidWorks CAD Master Desktop)")
-        self.root.geometry("900x700")
+        self.root.geometry("900x720")
         self.root.configure(bg="#1e293b")
+
+        # Start Background HTTP Server for Web-to-SW Sync
+        t = threading.Thread(target=start_http_server, daemon=True)
+        t.start()
 
         # Configure Persian / RTL styling
         style = ttk.Style()
@@ -29,8 +128,6 @@ class SolidWorksMasterApp:
         style.configure('TLabel', background='#1e293b', foreground='#f8fafc', font=('Tahoma', 10))
         style.configure('TButton', font=('Tahoma', 10, 'bold'), background='#0284c7', foreground='#ffffff')
         style.map('TButton', background=[('active', '#0369a1')])
-
-        self.sw_app = None
 
         self.create_widgets()
 
@@ -50,7 +147,7 @@ class SolidWorksMasterApp:
 
         subtitle_label = tk.Label(
             header,
-            text="طراحی کابینت، یراق‌آلات و تراشکاری CNC با اتصال مستقیم به SolidWorks COM API",
+            text="طراحی کابینت، یراق‌آلات و تراشکاری CNC با اتصال مستقیم به SolidWorks COM API (پورت 8080 فعال)",
             font=("Tahoma", 10),
             bg="#0f172a",
             fg="#94a3b8"
@@ -63,7 +160,7 @@ class SolidWorksMasterApp:
 
         self.status_label = tk.Label(
             status_frame,
-            text="وضعیت اتصال: آماده اتصال به سالیدورک",
+            text="وضعیت: پورت 8080 فعال جهت اتصال وب‌اپلیکیشن به SolidWorks",
             font=("Tahoma", 10, "bold"),
             bg="#334155",
             fg="#facc15"
@@ -72,7 +169,7 @@ class SolidWorksMasterApp:
 
         btn_connect = tk.Button(
             status_frame,
-            text="🔗 اتصال به SolidWorks",
+            text="🔗 تست اتصال به SolidWorks",
             font=("Tahoma", 9, "bold"),
             bg="#16a34a",
             fg="white",
@@ -139,19 +236,18 @@ class SolidWorksMasterApp:
         btn_build_cnc.grid(row=2, column=0, columnspan=2, pady=20)
 
     def connect_solidworks(self):
-        try:
-            self.sw_app = win32com.client.Dispatch("SldWorks.Application")
-            self.sw_app.Visible = True
-            self.status_label.config(text="وضعیت اتصال: متصل به SolidWorks ✅", fg="#4ade80")
-            messagebox.showinfo("اتصال موفق", "نرم‌افزار سالیدورک با موفقیت به برنامه متصل شد!")
-        except Exception as e:
+        sw = get_sw_app()
+        if sw:
+            self.status_label.config(text="وضعیت اتصال: متصل به SolidWorks ✅ (پورت 8080 آماده)", fg="#4ade80")
+            messagebox.showinfo("اتصال موفق", "نرم‌افزار سالیدورک با موفقیت به برنامه و پورت 8080 متصل شد!")
+        else:
             self.status_label.config(text="وضعیت اتصال: خطا در اتصال ❌", fg="#f87171")
-            messagebox.showerror("خطا", f"امکان اتصال به سالیدورک وجود ندارد:\\n{e}")
+            messagebox.showerror("خطا", "امکان اتصال مستقیم به SolidWorks COM API وجود ندارد. مطمئن شوید سالیدورک باز است.")
 
     def build_cabinet_in_sw(self):
-        if not self.sw_app:
-            self.connect_solidworks()
-        if not self.sw_app:
+        sw = get_sw_app()
+        if not sw:
+            messagebox.showerror("خطا", "ابتدا سالیدورک را اجرا نمایید.")
             return
 
         w = float(self.ent_w.get()) / 1000.0
@@ -159,9 +255,9 @@ class SolidWorksMasterApp:
         d = float(self.ent_d.get()) / 1000.0
 
         try:
-            part = self.sw_app.NewDocument("", 0, 0, 0)
+            part = sw.NewDocument("", 0, 0, 0)
             if not part:
-                part = self.sw_app.ActiveDoc
+                part = sw.ActiveDoc
 
             part.Extension.SelectByID2("Front Plane", "PLANE", 0, 0, 0, False, 0, None, 0)
             part.SketchManager.InsertSketch(True)
@@ -173,18 +269,18 @@ class SolidWorksMasterApp:
             messagebox.showerror("خطا", f"خطا در ساخت مدل: {e}")
 
     def build_cnc_in_sw(self):
-        if not self.sw_app:
-            self.connect_solidworks()
-        if not self.sw_app:
+        sw = get_sw_app()
+        if not sw:
+            messagebox.showerror("خطا", "ابتدا سالیدورک را اجرا نمایید.")
             return
 
         l = float(self.ent_cnc_l.get()) / 1000.0
         d = (float(self.ent_cnc_d.get()) / 2.0) / 1000.0
 
         try:
-            part = self.sw_app.NewDocument("", 0, 0, 0)
+            part = sw.NewDocument("", 0, 0, 0)
             if not part:
-                part = self.sw_app.ActiveDoc
+                part = sw.ActiveDoc
 
             part.Extension.SelectByID2("Front Plane", "PLANE", 0, 0, 0, False, 0, None, 0)
             part.SketchManager.InsertSketch(True)

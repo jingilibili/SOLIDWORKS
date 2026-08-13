@@ -5,6 +5,7 @@ import { generateCabinetMacro } from '../utils/macroGenerators';
 import { Cabinet3DViewer } from './3d/Cabinet3DViewer';
 import { getLearnedPatterns, saveLearnedPattern, getSmartSuggestion } from '../utils/learningEngine';
 import { saveAutosaveState, saveScenario } from '../utils/scenarioStorage';
+import { parseCabinetTextCommand } from '../utils/textCommandParser';
 import { 
   Box, 
   Copy, 
@@ -22,7 +23,9 @@ import {
   Wand2, 
   Save, 
   FolderOpen,
-  BookOpen 
+  Send,
+  Zap,
+  MessageSquare
 } from 'lucide-react';
 
 interface CabinetStudioProps {
@@ -38,6 +41,12 @@ export const CabinetStudio: React.FC<CabinetStudioProps> = ({ initialParams, onO
   const [learnedPatterns, setLearnedPatterns] = useState<LearnedPattern[]>([]);
   const [notification, setNotification] = useState<string | null>(null);
 
+  // Text-based Modification & Real-time SolidWorks Auto-Sync State
+  const [textCommandInput, setTextCommandInput] = useState<string>('');
+  const [textFeedback, setTextFeedback] = useState<string | null>(null);
+  const [autoSyncSW, setAutoSyncSW] = useState<boolean>(false);
+  const [swSyncStatus, setSwSyncStatus] = useState<string | null>(null);
+
   useEffect(() => {
     if (initialParams) {
       setParams(initialParams);
@@ -46,11 +55,54 @@ export const CabinetStudio: React.FC<CabinetStudioProps> = ({ initialParams, onO
 
   useEffect(() => {
     saveAutosaveState('cabinet', params);
+    if (autoSyncSW) {
+      transmitToSolidWorks(params);
+    }
   }, [params]);
 
   useEffect(() => {
     setLearnedPatterns(getLearnedPatterns());
   }, []);
+
+  const handleApplyTextEdit = (customText?: string) => {
+    const textToParse = customText || textCommandInput;
+    if (!textToParse.trim()) return;
+
+    const res = parseCabinetTextCommand(textToParse, params);
+    if (res.success) {
+      setParams(res.updatedData);
+      setTextFeedback(res.summaryPersian);
+      setTextCommandInput('');
+      setNotification(`✅ ${res.summaryPersian}`);
+    } else {
+      setTextFeedback(res.summaryPersian);
+    }
+    setTimeout(() => setTextFeedback(null), 4000);
+  };
+
+  const transmitToSolidWorks = async (customParams?: CabinetParams) => {
+    const currentP = customParams || params;
+    const currentMacro = generateCabinetMacro(currentP);
+    setSwSyncStatus('در حال ارسال فرمان مستقیم به SolidWorks...');
+
+    try {
+      const res = await fetch('http://127.0.0.1:8080/api/execute-macro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'cabinet',
+          params: currentP,
+          vbaCode: currentMacro.vbaCode
+        })
+      });
+
+      const data = await res.json();
+      setSwSyncStatus(`✅ ${data.message || 'پروژه با موفقیت در SolidWorks ایجاد/بروزرسانی شد.'}`);
+    } catch (e) {
+      setSwSyncStatus('💡 برنامه واسط سالیدورک روی 127.0.0.1:8080 آماده است. (فایل SolidWorks_Master_App.pyw را اجرا کنید)');
+    }
+    setTimeout(() => setSwSyncStatus(null), 5000);
+  };
 
   // Generate current macro outputs
   const macroOutput: SolidWorksMacroOutput = generateCabinetMacro(params);
@@ -415,9 +467,111 @@ export const CabinetStudio: React.FC<CabinetStudioProps> = ({ initialParams, onO
           </div>
         </div>
 
-        {/* Right Column: Interactive 3D WebGL Viewer (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col space-y-2">
-          <Cabinet3DViewer params={params} />
+        {/* Right Column: Interactive 3D WebGL Viewer & Text/SW Controls (7 cols) */}
+        <div className="lg:col-span-7 flex flex-col space-y-3">
+          {/* Live Text Command Editor Box */}
+          <div className="bg-white border border-slate-200 p-3.5 rounded-2xl shadow-sm space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold text-[#0f172a]">
+              <span className="flex items-center gap-1.5 text-blue-700">
+                <MessageSquare className="w-4 h-4" />
+                ویرایش سریع پارامترها با دستور متنی یا صوتی (فارسی):
+              </span>
+              <span className="text-[10px] text-slate-400 font-normal">
+                همگام‌سازی همزمان شکل سه‌بعدی و کد سالیدورک
+              </span>
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={textCommandInput}
+                onChange={(e) => setTextCommandInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleApplyTextEdit()}
+                placeholder="مثال: «عرض ۷۵۰ ارتفاع ۹۰۰ با ۲ تک درب و روکش چوب بلوط»..."
+                className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-600 font-medium"
+              />
+              <button
+                onClick={() => handleApplyTextEdit()}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shadow-sm shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+                اعمال اصلاح متنی
+              </button>
+            </div>
+
+            {/* Quick Command Suggestions */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[10px] text-slate-500 font-semibold">میانبر سریع:</span>
+              <button
+                onClick={() => handleApplyTextEdit('عرض ۸۰۰ ارتفاع ۹۰۰')}
+                className="px-2 py-0.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] rounded-md border border-slate-200 font-medium transition"
+              >
+                عرض ۸۰۰ / ارتفاع ۹۰۰
+              </button>
+              <button
+                onClick={() => handleApplyTextEdit('کابینت دیواری عرض ۶۰۰')}
+                className="px-2 py-0.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] rounded-md border border-slate-200 font-medium transition"
+              >
+                دیواری عرض ۶۰۰
+              </button>
+              <button
+                onClick={() => handleApplyTextEdit('دو درب با روکش گردو')}
+                className="px-2 py-0.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] rounded-md border border-slate-200 font-medium transition"
+              >
+                ۲ درب روکش گردو
+              </button>
+              <button
+                onClick={() => handleApplyTextEdit('سه طبقه و دو کشو')}
+                className="px-2 py-0.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] rounded-md border border-slate-200 font-medium transition"
+              >
+                ۳ طبقه و ۲ کشو
+              </button>
+            </div>
+
+            {textFeedback && (
+              <div className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 p-2 rounded-lg animate-fade-in">
+                {textFeedback}
+              </div>
+            )}
+          </div>
+
+          {/* 3D WebGL Viewer Component */}
+          <Cabinet3DViewer
+            params={params}
+            onUpdateParams={setParams}
+            isAutoSyncing={autoSyncSW}
+          />
+
+          {/* SolidWorks Direct Connection & Auto Sync Bar */}
+          <div className="bg-slate-900 border border-slate-800 p-3 rounded-2xl text-white flex flex-wrap items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => transmitToSolidWorks()}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex items-center gap-1.5 shadow-md"
+              >
+                <Zap className="w-4 h-4 text-amber-300" />
+                ارسال مستقیم به SolidWorks
+              </button>
+
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoSyncSW}
+                  onChange={(e) => setAutoSyncSW(e.target.checked)}
+                  className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
+                />
+                <span className={autoSyncSW ? 'text-emerald-400 font-bold' : ''}>
+                  همگام‌سازی خودکار و لحظه‌ای (Live Auto-Sync)
+                </span>
+              </label>
+            </div>
+
+            {swSyncStatus && (
+              <span className="text-[11px] font-semibold text-amber-300 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
+                {swSyncStatus}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

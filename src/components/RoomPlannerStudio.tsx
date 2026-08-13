@@ -25,11 +25,16 @@ import {
   Terminal,
   Cpu,
   Eye,
-  Activity
+  Activity,
+  BookOpen,
+  AlertCircle
 } from 'lucide-react';
 import { saveLearnedPattern } from '../utils/learningEngine';
+import { parseRoomTextCommand } from '../utils/textCommandParser';
 import { saveAutosaveState } from '../utils/scenarioStorage';
+import { evaluateGoldenTriangle } from '../utils/goldenTriangleEngine';
 import { Room3DViewer } from './3d/Room3DViewer';
+import { CustomModelLibraryModal } from './CustomModelLibraryModal';
 
 export interface RoomLayoutConfig {
   roomType: 'kitchen' | 'bedroom';
@@ -99,6 +104,56 @@ export const RoomPlannerStudio: React.FC<RoomPlannerStudioProps> = ({
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [activeScriptTab, setActiveScriptTab] = useState<'vba' | 'python' | 'pyautogui'>('vba');
   const [isExecutingSw, setIsExecutingSw] = useState<boolean>(false);
+  const [isLibraryModalOpen, setIsLibraryModalOpen] = useState<boolean>(false);
+
+  // Evaluate Golden Triangle
+  const goldenEval = evaluateGoldenTriangle(units, config);
+
+  // Recalculates unit xPosMm along walls
+  const recalculateUnitPositions = (unitList: CabinetUnitLayout[]): CabinetUnitLayout[] => {
+    const wall1 = unitList.filter((u) => u.wallIndex === 1);
+    const wall2 = unitList.filter((u) => u.wallIndex === 2);
+    const wall3 = unitList.filter((u) => u.wallIndex === 3);
+
+    let x1 = 0;
+    wall1.forEach((u) => { u.xPosMm = x1; x1 += u.widthMm; });
+
+    let x2 = 0;
+    wall2.forEach((u) => { u.xPosMm = x2; x2 += u.widthMm; });
+
+    let x3 = 0;
+    wall3.forEach((u) => { u.xPosMm = x3; x3 += u.widthMm; });
+
+    return [...wall1, ...wall2, ...wall3];
+  };
+
+  const handleMoveUnitOrder = (id: string, direction: 'left' | 'right') => {
+    setUnits((prev) => {
+      const idx = prev.findIndex((u) => u.id === id);
+      if (idx === -1) return prev;
+
+      const targetIdx = direction === 'left' ? idx - 1 : idx + 1;
+      if (targetIdx < 0 || targetIdx >= prev.length) return prev;
+
+      const updated = [...prev];
+      const temp = updated[idx];
+      updated[idx] = updated[targetIdx];
+      updated[targetIdx] = temp;
+
+      return recalculateUnitPositions(updated);
+    });
+  };
+
+  const handleChangeUnitWall = (id: string, newWall: 1 | 2 | 3) => {
+    setUnits((prev) => {
+      const updated = prev.map((u) => (u.id === id ? { ...u, wallIndex: newWall } : u));
+      return recalculateUnitPositions(updated);
+    });
+  };
+
+  const handleSwapUnitWithNeighbor = (id: string) => {
+    handleMoveUnitOrder(id, 'right');
+  };
 
   useEffect(() => {
     if (initialParams) {
@@ -106,9 +161,27 @@ export const RoomPlannerStudio: React.FC<RoomPlannerStudioProps> = ({
     }
   }, [initialParams]);
 
+  const [roomTextCommandInput, setRoomTextCommandInput] = useState<string>('');
+  const [roomTextFeedback, setRoomTextFeedback] = useState<string | null>(null);
+
   useEffect(() => {
     saveAutosaveState('room_planner', config);
   }, [config]);
+
+  const handleApplyRoomTextEdit = (customText?: string) => {
+    const textToParse = customText || roomTextCommandInput;
+    if (!textToParse.trim()) return;
+
+    const res = parseRoomTextCommand(textToParse, config);
+    if (res.success) {
+      setConfig(res.updatedData);
+      setRoomTextFeedback(res.summaryPersian);
+      setRoomTextCommandInput('');
+    } else {
+      setRoomTextFeedback(res.summaryPersian);
+    }
+    setTimeout(() => setRoomTextFeedback(null), 4000);
+  };
 
   // Auto Layout Calculation Algorithm
   useEffect(() => {
@@ -218,6 +291,34 @@ export const RoomPlannerStudio: React.FC<RoomPlannerStudioProps> = ({
             xPosMm: xOffset2
           });
         }
+      }
+
+      // Wall 3 Layout (if U-Shape)
+      if (config.layoutShape === 'u_shape') {
+        let xOffset3 = 300;
+        const w3 = config.wall3Length || 2400;
+
+        newUnits.push({
+          id: 'u-wall3-base',
+          unitType: 'base_standard',
+          namePersian: 'میز کار و یونیت زمینی آماده‌سازی دیوار ۳',
+          wallIndex: 3,
+          widthMm: Math.min(1200, w3 - 400),
+          heightMm: 870,
+          depthMm: 550,
+          xPosMm: xOffset3
+        });
+
+        newUnits.push({
+          id: 'u-wall3-upper',
+          unitType: 'wall_standard',
+          namePersian: 'کابینت هوایی دیواری متصل به دیوار ۳',
+          wallIndex: 3,
+          widthMm: Math.min(1200, w3 - 400),
+          heightMm: config.cabinetHeightType === 'full_height_to_ceiling' ? 900 : 700,
+          depthMm: 350,
+          xPosMm: xOffset3
+        });
       }
 
       // Wall Cabinets (کابینت‌های دیواری هوایی)
@@ -496,6 +597,15 @@ print("VBA Macro launched successfully!")
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsLibraryModalOpen(true)}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5"
+            title="کتابخانه مدل‌ها و قالب‌های اختصاصی (Parametric Model Library)"
+          >
+            <BookOpen className="w-4 h-4 text-indigo-200" />
+            📚 کتابخانه مدل‌های شخصی
+          </button>
+
           {onOpenScenarioModal && (
             <button
               onClick={onOpenScenarioModal}
@@ -503,7 +613,7 @@ print("VBA Macro launched successfully!")
               title="ذخیره یا بارگذاری پروژه‌ها از LocalStorage"
             >
               <FolderOpen className="w-4 h-4 text-blue-200" />
-              مدیریت پروژه‌ها / ذخیره سناریو
+              مدیریت پروژه‌ها
             </button>
           )}
 
@@ -512,7 +622,7 @@ print("VBA Macro launched successfully!")
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5"
           >
             <Save className="w-4 h-4" />
-            ذخیره الگوی چیدمان
+            ذخیره الگو
           </button>
         </div>
       </div>
@@ -559,8 +669,66 @@ print("VBA Macro launched successfully!")
         </div>
       </div>
 
-      {/* 3D Interactive Room Viewer with Vibrant Object Colors */}
-      <div className="space-y-2">
+      {/* 3D Interactive Room Viewer with Live Text Modifier Bar */}
+      <div className="space-y-3">
+        {/* Room Text Command Modifier Bar */}
+        <div className="bg-white border border-slate-200 p-3.5 rounded-2xl shadow-sm space-y-2">
+          <div className="flex items-center justify-between text-xs font-bold text-[#0f172a]">
+            <span className="flex items-center gap-1.5 text-blue-700">
+              <Edit3 className="w-4 h-4" />
+              تغییر متنی چیدمان و طول دیوارها (اصلاح هوشمند):
+            </span>
+            <span className="text-[10px] text-slate-400 font-normal">
+              بروزرسانی زنده دیوار ۱، ۲ و ۳ در نمای سه‌بعدی و کد سالیدورک
+            </span>
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={roomTextCommandInput}
+              onChange={(e) => setRoomTextCommandInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleApplyRoomTextEdit()}
+              placeholder="مثال: «شکل U با طول دیوار اول ۳۵۰ و دیوار دوم ۲۵۰»..."
+              className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-600 font-medium"
+            />
+            <button
+              onClick={() => handleApplyRoomTextEdit()}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition flex items-center gap-1 shadow-sm shrink-0"
+            >
+              اعمال تغییر متنی
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-[10px] text-slate-500 font-semibold">میانبرهای متنی:</span>
+            <button
+              onClick={() => handleApplyRoomTextEdit('شکل U با دیوار اصلی ۴۰۰۰')}
+              className="px-2 py-0.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] rounded-md border border-slate-200 font-medium transition"
+            >
+              چیدمان U شکل (دیوار ۴ متر)
+            </button>
+            <button
+              onClick={() => handleApplyRoomTextEdit('شکل L دیوار اول ۳۵۰۰ دیوار دوم ۲۰۰۰')}
+              className="px-2 py-0.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] rounded-md border border-slate-200 font-medium transition"
+            >
+              چیدمان L شکل (۳.۵m × ۲m)
+            </button>
+            <button
+              onClick={() => handleApplyRoomTextEdit('مستقیم خطی دیوار ۳۰۰۰')}
+              className="px-2 py-0.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 text-[10px] rounded-md border border-slate-200 font-medium transition"
+            >
+              چیدمان خطی مستمر
+            </button>
+          </div>
+
+          {roomTextFeedback && (
+            <div className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 p-2 rounded-lg animate-fade-in">
+              {roomTextFeedback}
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-[#0f172a] flex items-center gap-2">
             <Eye className="w-4 h-4 text-blue-600" />
@@ -578,7 +746,90 @@ print("VBA Macro launched successfully!")
           units={units}
           selectedUnitId={selectedUnitId}
           onSelectUnit={(id) => setSelectedUnitId(id)}
+          onUpdateConfig={setConfig}
+          onMoveUnitOrder={handleMoveUnitOrder}
+          onChangeUnitWall={handleChangeUnitWall}
+          onSwapUnitWithNeighbor={handleSwapUnitWithNeighbor}
         />
+
+        {/* Golden Triangle Ergonomics & Rules Evaluation Panel */}
+        {config.roomType === 'kitchen' && (
+          <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl text-white shadow-xl space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
+                  <Compass className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">تحلیل ارگونومی و وضعیت مثلث طلایی آشپزخانه (Golden Work Triangle)</h3>
+                  <p className="text-xs text-slate-400">
+                    محاسبه زنده مسافت بین سینک ظرفشویی، اجاق گاز و یخچال با استانداردهای ارگونومی
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span
+                  className={`px-3 py-1 rounded-xl text-xs font-bold border flex items-center gap-1.5 ${
+                    goldenEval.score >= 85
+                      ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                      : goldenEval.score >= 60
+                      ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                      : 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                  }`}
+                >
+                  <span>امتیاز ارگونومی:</span>
+                  <strong className="text-sm font-mono">{goldenEval.score}/100</strong>
+                </span>
+              </div>
+            </div>
+
+            {/* Golden Triangle Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+              <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80 space-y-1">
+                <span className="text-slate-400 text-[10px]">سینک ↔ اجاق گاز:</span>
+                <div className="text-sky-400 font-mono font-bold text-sm">{goldenEval.distSinkToGas}m</div>
+                <span className="text-[10px] text-slate-500">استاندارد: ۱.۲m تا ۲.۷m</span>
+              </div>
+
+              <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80 space-y-1">
+                <span className="text-slate-400 text-[10px]">سینک ↔ یخچال:</span>
+                <div className="text-emerald-400 font-mono font-bold text-sm">{goldenEval.distSinkToFridge}m</div>
+                <span className="text-[10px] text-slate-500">استاندارد: ۱.۲m تا ۲.۷m</span>
+              </div>
+
+              <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80 space-y-1">
+                <span className="text-slate-400 text-[10px]">اجاق گاز ↔ یخچال:</span>
+                <div className="text-amber-400 font-mono font-bold text-sm">{goldenEval.distGasToFridge}m</div>
+                <span className="text-[10px] text-slate-500">استاندارد: ۱.۲m تا ۲.۷m</span>
+              </div>
+
+              <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/80 space-y-1">
+                <span className="text-slate-400 text-[10px]">مجموع پیرامون مثلث:</span>
+                <div className="text-indigo-400 font-mono font-bold text-sm">{goldenEval.totalPerimeter}m</div>
+                <span className="text-[10px] text-slate-500">استاندارد: ۴.۰m تا ۷.۹m</span>
+              </div>
+            </div>
+
+            {/* Warnings & Non-Blocking Notices */}
+            {goldenEval.warningsPersian.length > 0 && (
+              <div className="bg-amber-950/40 border border-amber-500/30 p-3.5 rounded-xl space-y-1.5 text-xs text-amber-200">
+                <div className="font-bold flex items-center gap-1.5 text-amber-400">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  هشدارهای رعایت قوانین طراحی اصولی:
+                </div>
+                <ul className="list-disc list-inside space-y-1 text-[11px] text-amber-100/90 pr-2">
+                  {goldenEval.warningsPersian.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+                <p className="text-[10px] text-slate-400 pt-1 border-t border-amber-500/20 italic">
+                  💡 توجه: سیستم این هشدارها را جهت اطلاع شما نمایش می‌دهد؛ اما شما مجاز هستید هرگونه تغییرات دلخواه را در جابجایی یونیت‌ها اعمال نمایید.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main Grid: Inputs (5 cols), Visual & Output (7 cols) */}
@@ -656,6 +907,18 @@ print("VBA Macro launched successfully!")
                     type="number"
                     value={config.wall2Length}
                     onChange={(e) => setConfig({ ...config, wall2Length: Number(e.target.value) })}
+                    className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-800 font-mono font-bold"
+                  />
+                </div>
+              )}
+
+              {config.layoutShape === 'u_shape' && (
+                <div className="space-y-1">
+                  <label className="text-slate-700 font-medium">طول دیوار سوم (۳):</label>
+                  <input
+                    type="number"
+                    value={config.wall3Length || 2400}
+                    onChange={(e) => setConfig({ ...config, wall3Length: Number(e.target.value) })}
                     className="w-full p-2 bg-white border border-slate-300 rounded-lg text-slate-800 font-mono font-bold"
                   />
                 </div>
@@ -860,6 +1123,20 @@ print("VBA Macro launched successfully!")
           </div>
         </div>
       </div>
+
+      {/* Custom Parametric Model Library Modal */}
+      <CustomModelLibraryModal
+        isOpen={isLibraryModalOpen}
+        onClose={() => setIsLibraryModalOpen(false)}
+        currentRoomConfig={config}
+        currentUnits={units}
+        onApplyAdaptedModel={(adaptedConfig, adaptedUnits, summary) => {
+          setConfig(adaptedConfig);
+          setUnits(adaptedUnits);
+          setNotification(summary);
+          setTimeout(() => setNotification(null), 5000);
+        }}
+      />
     </div>
   );
 };

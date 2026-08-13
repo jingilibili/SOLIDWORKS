@@ -78,52 +78,60 @@ export function generateCabinetMacro(params: CabinetParams): SolidWorksMacroOutp
     });
   }
 
-  // Generate SolidWorks VBA Macro
+  // Generate SolidWorks VBA Macro with auto-template lookup and valid syntax
   const vbaCode = `' ============================================================
 ' SolidWorks VBA Macro: Parametric Kitchen Cabinet Generator
-' Created by: SolidWorks Master Assistant (Persian)
+' Created by: SolidWorks Master Assistant
 ' Dimensions: ${width}x${height}x${depth} mm
 ' ============================================================
-
-Dim swApp As Object
-Dim Part As Object
-Dim boolstatus As Boolean
-Dim longstatus As Long, longwarnings As Long
+Option Explicit
 
 Sub main()
+    Dim swApp As SldWorks.SldWorks
+    Dim Part As SldWorks.ModelDoc2
+    Dim boolstatus As Boolean
+    Dim templateName As String
 
-Set swApp = Application.SldWorks
-Set Part = swApp.NewDocument("C:\\ProgramData\\SolidWorks\\SolidWorks 2024\\templates\\Part.prtdot", 0, 0, 0)
-If Part Is Nothing Then Set Part = swApp.ActiveDoc
+    On Error Resume Next
+    Set swApp = Application.SldWorks
+    If swApp Is Nothing Then Set swApp = CreateObject("SldWorks.Application")
+    swApp.Visible = True
 
-swApp.SendMsgToUser2 "در حال ساخت کابینت پارامتریک ${width}x${height}x${depth} میلی‌متر...", 1, 2
+    ' Auto-detect default SolidWorks Part template path
+    templateName = swApp.GetUserPreferenceStringValue(8) ' swDefaultTemplatePart
+    If templateName = "" Then templateName = "C:\\ProgramData\\SolidWorks\\SolidWorks 2024\\templates\\Part.prtdot"
 
-' Step 1: Create Main Cabinet Outer Block
-Part.Extension.SelectByID2 "Front Plane", "PLANE", 0, 0, 0, False, 0, Nothing, 0
-Part.SketchManager.InsertSketch True
-Part.ClearSelection2 True
+    Set Part = swApp.NewDocument(templateName, 0, 0, 0)
+    If Part Is Nothing Then Set Part = swApp.ActiveDoc
 
-' Draw Base Rectangle (${width} x ${cabinetBodyHeight})
-Dim skSegment1 As Object
-Set skSegment1 = Part.SketchManager.CreateRectangle(0, 0, 0, ${width / 1000}, ${cabinetBodyHeight / 1000}, 0)
-Part.FeatureManager.FeatureExtrusion3 True, False, False, 0, 0, ${depth / 1000}, 0.01, False, False, False, False, 0, 0, False, False, False, False, True, True, True, 0, 0, False
+    If Part Is Nothing Then
+        MsgBox "خطا در ایجاد سند جدید در سالیدورک!", vbCritical, "SolidWorks Master"
+        Exit Sub
+    End If
 
-' Step 2: Create Shell Interior Hollow
-Part.Extension.SelectByID2 "", "FACE", ${width / 2000}, ${cabinetBodyHeight / 2000}, ${depth / 1000}, False, 0, Nothing, 0
-Dim myFeature As Object
-Set myFeature = Part.FeatureManager.InsertShell(${materialThickness / 1000}, False)
+    ' Step 1: Create Main Cabinet Outer Block
+    boolstatus = Part.Extension.SelectByID2("Front Plane", "PLANE", 0, 0, 0, False, 0, Nothing, 0)
+    Part.SketchManager.InsertSketch True
+    Part.ClearSelection2 True
 
-' Step 3: Add Doors if required
-${doorCount > 0 ? `' Adding ${doorCount} Doors
-Part.Extension.SelectByID2 "Front Plane", "PLANE", 0, 0, 0, False, 0, Nothing, 0
-Part.SketchManager.InsertSketch True
-Part.SketchManager.CreateRectangle(0.002, 0.002, 0, ${(doorWidth / 1000)}, ${(doorHeight / 1000)}, 0)
-Part.FeatureManager.FeatureExtrusion3 True, False, False, 0, 0, ${materialThickness / 1000}, 0.01, False, False, False, False, 0, 0, False, False, False, False, True, True, True, 0, 0, False
-` : "' No doors requested"}
+    ' Draw Base Rectangle (${width} x ${cabinetBodyHeight} mm)
+    Part.SketchManager.CreateRectangle 0, 0, 0, ${width / 1000}, ${cabinetBodyHeight / 1000}, 0
+    Part.FeatureManager.FeatureExtrusion3 True, False, False, 0, 0, ${depth / 1000}, 0.01, False, False, False, False, 0, 0, False, False, False, False, True, True, True, 0, 0, False
 
-Part.ViewZoomtofit2
-MsgBox "طراحی کابینت آشپزخانه با موفقیت در سالیدورک ایجاد شد!", vbInformation, "دستیار سالیدورک"
+    ' Step 2: Create Shell Interior Hollow
+    boolstatus = Part.Extension.SelectByID2("", "FACE", ${width / 2000}, ${cabinetBodyHeight / 2000}, ${depth / 1000}, False, 0, Nothing, 0)
+    Part.FeatureManager.InsertShell ${materialThickness / 1000}, False
 
+    ' Step 3: Add Doors if required
+    ${doorCount > 0 ? `' Adding ${doorCount} Doors (${doorWidth}x${doorHeight}mm)
+    boolstatus = Part.Extension.SelectByID2("Front Plane", "PLANE", 0, 0, 0, False, 0, Nothing, 0)
+    Part.SketchManager.InsertSketch True
+    Part.SketchManager.CreateRectangle 0.002, 0.002, 0, ${doorWidth / 1000}, ${doorHeight / 1000}, 0
+    Part.FeatureManager.FeatureExtrusion3 True, False, False, 0, 0, ${materialThickness / 1000}, 0.01, False, False, False, False, 0, 0, False, False, False, False, True, True, True, 0, 0, False
+    ` : "' No doors requested"}
+
+    Part.ViewZoomtofit2
+    MsgBox "طراحی کابینت ${params.name || 'آشپزخانه'} با ابعاد ${width}x${height}x${depth} میلی‌متر با موفقیت در سالیدورک ایجاد شد!", vbInformation, "SolidWorks Master"
 End Sub`;
 
   // Generate Python COM Script

@@ -9,6 +9,11 @@ interface Room3DViewerProps {
   units: CabinetUnitLayout[];
   selectedUnitId?: string | null;
   onSelectUnit?: (id: string) => void;
+  onUpdateConfig?: (updatedConfig: RoomLayoutConfig) => void;
+  onMoveUnitOrder?: (id: string, direction: 'left' | 'right') => void;
+  onChangeUnitWall?: (id: string, newWall: 1 | 2 | 3) => void;
+  onSwapUnitWithNeighbor?: (id: string) => void;
+  showGoldenTriangle3D?: boolean;
 }
 
 export const Room3DViewer: React.FC<Room3DViewerProps> = ({
@@ -16,6 +21,11 @@ export const Room3DViewer: React.FC<Room3DViewerProps> = ({
   units,
   selectedUnitId,
   onSelectUnit,
+  onUpdateConfig,
+  onMoveUnitOrder,
+  onChangeUnitWall,
+  onSwapUnitWithNeighbor,
+  showGoldenTriangle3D = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const roomGroupRef = useRef<THREE.Group | null>(null);
@@ -187,12 +197,21 @@ export const Room3DViewer: React.FC<Room3DViewerProps> = ({
     wall1Mesh.position.set(w1 / 2, cH / 2, -0.04);
     roomGroup.add(wall1Mesh);
 
-    // Wall 2 (Side wall along Z if L/U shape)
+    // Wall 2 (Side left wall along Z if L/U shape)
     if (config.layoutShape === 'l_shape' || config.layoutShape === 'u_shape') {
       const wall2Geo = new THREE.BoxGeometry(0.08, cH, w2);
       const wall2Mesh = new THREE.Mesh(wall2Geo, wallMat);
       wall2Mesh.position.set(-0.04, cH / 2, w2 / 2);
       roomGroup.add(wall2Mesh);
+    }
+
+    // Wall 3 (Side right wall along Z if U shape)
+    if (config.layoutShape === 'u_shape') {
+      const w3 = (config.wall3Length || 2400) / 1000;
+      const wall3Geo = new THREE.BoxGeometry(0.08, cH, w3);
+      const wall3Mesh = new THREE.Mesh(wall3Geo, wallMat);
+      wall3Mesh.position.set(w1 + 0.04, cH / 2, w3 / 2);
+      roomGroup.add(wall3Mesh);
     }
 
     // --- 3. UNITS RENDERER ---
@@ -208,7 +227,7 @@ export const Room3DViewer: React.FC<Room3DViewerProps> = ({
       const unitGroup = new THREE.Group();
 
       if (unit.wallIndex === 1) {
-        // Wall 1 Positioning
+        // Wall 1 Positioning (along X)
         let uY = uH / 2;
         let uZ = uD / 2;
 
@@ -219,7 +238,7 @@ export const Room3DViewer: React.FC<Room3DViewerProps> = ({
 
         unitGroup.position.set(uX, uY + (isSelected ? 0.05 : 0), uZ + (isSelected ? 0.05 : 0));
       } else if (unit.wallIndex === 2) {
-        // Wall 2 Positioning (along Z axis)
+        // Wall 2 Positioning (along Z on left)
         let uY = uH / 2;
         let uZ = uX; // xPos on wall 2 is distance along Z
         let uXpos = uD / 2;
@@ -230,6 +249,18 @@ export const Room3DViewer: React.FC<Room3DViewerProps> = ({
 
         unitGroup.position.set(uXpos, uY, uZ);
         unitGroup.rotation.y = Math.PI / 2;
+      } else if (unit.wallIndex === 3) {
+        // Wall 3 Positioning (along Z on right for U-Shape)
+        let uY = uH / 2;
+        let uZ = uX;
+        let uXpos = w1 - uD / 2;
+
+        if (unit.unitType === 'wall_standard') {
+          uY = 1.45 + uH / 2;
+        }
+
+        unitGroup.position.set(uXpos, uY, uZ);
+        unitGroup.rotation.y = -Math.PI / 2;
       }
 
       // Render based on Unit Type
@@ -349,6 +380,58 @@ export const Room3DViewer: React.FC<Room3DViewerProps> = ({
       roomGroup.add(unitGroup);
     });
 
+    // --- 4. 3D GOLDEN TRIANGLE VISUALIZER ---
+    if (showGoldenTriangle3D && config.roomType === 'kitchen') {
+      const sinkUnit = units.find((u) => u.unitType === 'base_sink');
+      const gasUnit = units.find((u) => u.unitType === 'base_gas');
+      const fridgeUnit = units.find((u) => u.unitType === 'tall_fridge');
+
+      if (sinkUnit && gasUnit && fridgeUnit) {
+        const getCenter = (u: CabinetUnitLayout) => {
+          const uW = u.widthMm / 1000;
+          const uD = u.depthMm / 1000;
+          const uX = u.xPosMm / 1000 + uW / 2;
+          let px = 0;
+          let py = (u.heightMm / 1000) * 0.7;
+          let pz = 0;
+
+          if (u.wallIndex === 1) {
+            px = uX;
+            pz = uD / 2;
+          } else if (u.wallIndex === 2) {
+            px = uD / 2;
+            pz = uX;
+          } else if (u.wallIndex === 3) {
+            px = w1 - uD / 2;
+            pz = uX;
+          }
+          return new THREE.Vector3(px, py, pz);
+        };
+
+        const pSink = getCenter(sinkUnit);
+        const pGas = getCenter(gasUnit);
+        const pFridge = getCenter(fridgeUnit);
+
+        const lineMat = new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 3 });
+
+        // Triangle Lines
+        const points = [pSink, pGas, pFridge, pSink];
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+        const triangleLine = new THREE.Line(lineGeo, lineMat);
+        roomGroup.add(triangleLine);
+
+        // Glowing Node Beacons
+        const sphereGeo = new THREE.SphereGeometry(0.08, 16, 16);
+        const sphereMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xd97706 });
+
+        [pSink, pGas, pFridge].forEach((pt) => {
+          const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+          sphere.position.copy(pt);
+          roomGroup.add(sphere);
+        });
+      }
+    }
+
     // Interactive mouse rotation
     let isDragging = false;
     let prevMouseX = 0;
@@ -416,6 +499,67 @@ export const Room3DViewer: React.FC<Room3DViewerProps> = ({
         <span>نمای سه‌بعدی تعاملی چیدمان {config.roomType === 'kitchen' ? 'آشپزخانه' : 'اتاق خواب'}</span>
       </div>
 
+      {/* Interactive 3D Wall Dimension Overlay Panel */}
+      {onUpdateConfig && (
+        <div className="absolute top-12 right-3 bg-slate-950/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-700/60 shadow-xl text-xs text-slate-200 space-y-2 z-10 w-60">
+          <div className="text-[11px] font-bold text-sky-400 border-b border-slate-800 pb-1">
+            🎛️ ویرایش ابعاد دیوارها مستقیم روی 3D:
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex justify-between text-[11px] text-slate-300">
+              <span>دیوار اصلی (۱):</span>
+              <strong className="text-sky-400 font-mono">{config.wall1Length}mm</strong>
+            </div>
+            <input
+              type="range"
+              min="1800"
+              max="7000"
+              step="100"
+              value={config.wall1Length}
+              onChange={(e) => onUpdateConfig({ ...config, wall1Length: Number(e.target.value) })}
+              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
+            />
+          </div>
+
+          {(config.layoutShape === 'l_shape' || config.layoutShape === 'u_shape') && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-[11px] text-slate-300">
+                <span>دیوار دوم (۲):</span>
+                <strong className="text-emerald-400 font-mono">{config.wall2Length}mm</strong>
+              </div>
+              <input
+                type="range"
+                min="1800"
+                max="7000"
+                step="100"
+                value={config.wall2Length}
+                onChange={(e) => onUpdateConfig({ ...config, wall2Length: Number(e.target.value) })}
+                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              />
+            </div>
+          )}
+
+          {config.layoutShape === 'u_shape' && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-[11px] text-slate-300">
+                <span>دیوار سوم (۳):</span>
+                <strong className="text-amber-400 font-mono">{config.wall3Length || 2400}mm</strong>
+              </div>
+              <input
+                type="range"
+                min="1800"
+                max="7000"
+                step="100"
+                value={config.wall3Length || 2400}
+                onChange={(e) => onUpdateConfig({ ...config, wall3Length: Number(e.target.value) })}
+                className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Floating Zoom Controls Bar */}
       <div className="absolute top-3 left-3 bg-slate-950/85 backdrop-blur-md p-1 rounded-xl border border-slate-700/60 shadow-lg text-xs font-bold text-white flex items-center gap-1 z-10">
         <button
@@ -441,6 +585,77 @@ export const Room3DViewer: React.FC<Room3DViewerProps> = ({
           <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
         </button>
       </div>
+
+      {/* Selected Unit Position & Wall Manipulation Overlay */}
+      {selectedUnitId && (
+        <div className="absolute bottom-16 right-3 left-3 bg-slate-950/95 backdrop-blur-md p-2.5 rounded-2xl border border-amber-500/50 shadow-2xl flex flex-wrap items-center justify-between gap-2 z-10 animate-fade-in">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+            <span>🎯 یونیت انتخابی:</span>
+            <span className="text-white bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
+              {units.find((u) => u.id === selectedUnitId)?.namePersian || selectedUnitId}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {onMoveUnitOrder && (
+              <>
+                <button
+                  onClick={() => onMoveUnitOrder(selectedUnitId, 'left')}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-sky-600 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 border border-slate-700"
+                  title="انتقال ترتیب یونیت به سمت چپ"
+                >
+                  ⬅️ حرکت به چپ
+                </button>
+                <button
+                  onClick={() => onMoveUnitOrder(selectedUnitId, 'right')}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-sky-600 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 border border-slate-700"
+                  title="انتقال ترتیب یونیت به سمت راست"
+                >
+                  ➡️ حرکت به راست
+                </button>
+              </>
+            )}
+
+            {onSwapUnitWithNeighbor && (
+              <button
+                onClick={() => onSwapUnitWithNeighbor(selectedUnitId)}
+                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm"
+                title="تعویض جایگاه با یونیت مجاور"
+              >
+                🔄 تعویض جایگاه با یونیت بعدی
+              </button>
+            )}
+
+            {onChangeUnitWall && (
+              <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                <span className="text-[10px] text-slate-400 px-1 font-semibold">تغییر دیوار:</span>
+                <button
+                  onClick={() => onChangeUnitWall(selectedUnitId, 1)}
+                  className="px-2 py-0.5 bg-slate-800 hover:bg-sky-600 text-white text-[10px] font-bold rounded-md"
+                >
+                  دیوار ۱
+                </button>
+                {(config.layoutShape === 'l_shape' || config.layoutShape === 'u_shape') && (
+                  <button
+                    onClick={() => onChangeUnitWall(selectedUnitId, 2)}
+                    className="px-2 py-0.5 bg-slate-800 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-md"
+                  >
+                    دیوار ۲
+                  </button>
+                )}
+                {config.layoutShape === 'u_shape' && (
+                  <button
+                    onClick={() => onChangeUnitWall(selectedUnitId, 3)}
+                    className="px-2 py-0.5 bg-slate-800 hover:bg-amber-600 text-white text-[10px] font-bold rounded-md"
+                  >
+                    دیوار ۳
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Control Overlay Bar */}
       <div className="absolute bottom-3 right-3 left-3 flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-950/85 backdrop-blur-md rounded-xl border border-slate-700/60 text-xs text-slate-200">
