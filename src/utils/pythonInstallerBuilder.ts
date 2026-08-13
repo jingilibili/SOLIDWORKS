@@ -317,44 +317,61 @@ if __name__ == "__main__":
 
 export function generateBuildExeBat(): string {
   return `@echo off
-chcp 65001 > NUL
-title ساخت فایل نصبی و اجرایی SolidWorks Master (PyInstaller)
+:: Force script directory as Current Working Directory (Fixes C:\Windows\System32 issue when Run as Admin)
+cd /d "%~dp0"
+
+title SolidWorks Master EXE Builder
 echo ============================================================
-echo   تولید فایل اجرایی دسکتاپ (.EXE) برای دستیار سالیدورک
+echo   SolidWorks Master - EXE Installer Generator
 echo ============================================================
 echo.
 
-:: 1. بررسی نصب بودن پایتون روی سیستم
+:: 1. Check Python installation
 where python >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [خطا] پایتون روی سیستم شما پیدا نشد یا به PATH اضافه نشده است!
-    echo لطفاً Python 3.9 یا بالاتر را از سایت python.org دانلود کنید.
-    echo ⚠️ مهم: هنگام نصب، گزینه "Add Python to PATH" را حتماً تیک بزنید!
-    echo.
-    pause
-    exit /b 1
-)
+if errorlevel 1 goto NO_PYTHON
 
-echo [1/3] در حال نصب و به‌روزرسانی کتابخانه‌های پیش‌نیاز (pywin32, pyinstaller, pyautogui)...
+echo [1/3] Installing required Python libraries (pywin32, pyinstaller, pyautogui)...
 python -m pip install --upgrade pip
 python -m pip install pywin32 pyinstaller pyautogui
 
 echo.
-echo [2/3] در حال تبدیل اسکریپت پایتون به فایل اجرایی مستقل (.EXE)...
-pyinstaller --noconfirm --onedir --windowed --hidden-import=win32com --hidden-import=win32com.client --hidden-import=pythoncom --hidden-import=pywintypes --hidden-import=tkinter --name "SolidWorks_Master" SolidWorks_Master_App.pyw
+echo [2/3] Converting Python script to EXE with PyInstaller...
+python -m PyInstaller --noconfirm --onedir --windowed --hidden-import=win32com --hidden-import=win32com.client --hidden-import=pythoncom --hidden-import=pywintypes --hidden-import=tkinter --name "SolidWorks_Master" SolidWorks_Master_App.pyw
 
-if %errorlevel% equ 0 (
-    echo.
-    echo ============================================================
-    echo ✅ فایل EXE با موفقیت در پوشه dist\\SolidWorks_Master ایجاد شد!
-    echo می توانید فایل SolidWorks_Master.exe را مستقیماً اجرا کرده یا کل پوشه را منتقل کنید.
-    echo ============================================================
-) else (
-    echo.
-    echo [تلاش مجدد] در حال ساخت به صورت تک‌فایل (One-File)...
-    pyinstaller --noconfirm --onefile --windowed --hidden-import=win32com --hidden-import=win32com.client --hidden-import=pythoncom --hidden-import=pywintypes --hidden-import=tkinter --name "SolidWorks_Master" SolidWorks_Master_App.pyw
-)
+if errorlevel 1 goto RETRY_ONEFILE
 
+echo.
+echo ============================================================
+echo SUCCESS: SolidWorks_Master.exe created in dist\\SolidWorks_Master folder!
+echo ============================================================
+goto END
+
+:RETRY_ONEFILE
+echo.
+echo [Retrying] Building as Single File EXE...
+python -m PyInstaller --noconfirm --onefile --windowed --hidden-import=win32com --hidden-import=win32com.client --hidden-import=pythoncom --hidden-import=pywintypes --hidden-import=tkinter --name "SolidWorks_Master" SolidWorks_Master_App.pyw
+
+if errorlevel 1 goto BUILD_ERROR
+
+echo.
+echo ============================================================
+echo SUCCESS: SolidWorks_Master.exe created in dist folder!
+echo ============================================================
+goto END
+
+:NO_PYTHON
+echo.
+echo [ERROR] Python is not installed or not added to system PATH!
+echo Please download Python 3.9+ from python.org
+echo IMPORTANT: Check "Add Python to PATH" during installation.
+goto END
+
+:BUILD_ERROR
+echo.
+echo [ERROR] PyInstaller build failed. Please check Python installation and permissions.
+goto END
+
+:END
 echo.
 pause
 `;

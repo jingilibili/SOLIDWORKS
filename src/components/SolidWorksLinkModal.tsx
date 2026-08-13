@@ -266,25 +266,25 @@ export const SolidWorksLinkModal: React.FC<SolidWorksLinkModalProps> = ({
             </h4>
             <ol className="list-decimal list-inside space-y-1.5 text-slate-600 leading-relaxed">
               <li>فایل‌های <code className="text-blue-700 font-semibold bg-blue-50 px-1 py-0.5 rounded">SolidWorks_Master_App.pyw</code> و <code className="text-amber-700 font-semibold bg-amber-50 px-1 py-0.5 rounded">build_exe.bat</code> را دانلود کنید.</li>
-              <li>هر دو فایل را در یک پوشه قرار دهید و روی <code className="text-amber-700 font-semibold bg-amber-50 px-1 py-0.5 rounded">build_exe.bat</code> کلیک راست کرده و Run as Administrator را بزنید.</li>
-              <li>فایل <code className="text-emerald-700 font-semibold bg-emerald-50 px-1 py-0.5 rounded">SolidWorks_Master.exe</code> در پوشه dist ساخته می‌شود و آماده اجرای یک‌کلیکی است!</li>
+              <li>هر دو فایل را در یک پوشه قرار دهید و روی <code className="text-amber-700 font-semibold bg-amber-50 px-1 py-0.5 rounded">build_exe.bat</code> دبل کلیک کنید.</li>
+              <li>فایل <code className="text-emerald-700 font-semibold bg-emerald-50 px-1 py-0.5 rounded">SolidWorks_Master.exe</code> در پوشه <code className="bg-slate-200 px-1 rounded">dist\SolidWorks_Master</code> ساخته شده و آماده استفاده است!</li>
             </ol>
           </div>
 
           <div className="p-4 bg-amber-50/80 rounded-xl border border-amber-200 text-xs text-slate-800 space-y-2">
             <h4 className="font-bold text-amber-900 flex items-center gap-1.5">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-              راهنمای رفع ارورهای احتمالی هنگام ساخت EXE:
+              رفع ارورهای متداول گزارش شده:
             </h4>
             <ul className="space-y-1.5 text-slate-700 text-[11px] leading-relaxed">
               <li>
-                <strong>• ارور 'python' is not recognized:</strong> هنگام نصب پایتون، حتماً گزینه پایین <span className="text-blue-800 font-bold">"Add Python to PATH"</span> را تیک بزنید.
+                <strong>• ارور Do not run pyinstaller from C:\WINDOWS\system32:</strong> دستور <code className="bg-amber-100 px-1 rounded">cd /d "%~dp0"</code> به ابتدای فایل `.bat` اضافه شد تا حتماً در پوشه اصلی فایل‌های شما کامپایل شود.
               </li>
               <li>
-                <strong>• ارور PyInstaller یا win32com:</strong> اسکریپت به‌روزرسانی شده به‌طور خودکار کتابخانه‌های <code className="bg-amber-100 px-1 rounded">pywin32</code> و <code className="bg-amber-100 px-1 rounded">pythoncom</code> را به‌صورت کامل کامپایل می‌کند.
+                <strong>• ارور کاراکترهای فارسی در CMD:</strong> تمامی دستورات اسکریپت `.bat` به دستورات استاندارد ASCII به‌همراه برچسب‌های `goto` تغییر یافت تا هیچ بهم‌ریختگی در CMD ایجاد نشود.
               </li>
               <li>
-                <strong>• اجرای سریع بدون ساخت EXE:</strong> می‌توانید مستقیماً روی فایل <code className="bg-blue-100 px-1 rounded text-blue-900 font-bold">SolidWorks_Master_App.pyw</code> کلیک راست کرده و با Python آن را بدون نیاز به ساخت EXE اجرا کنید.
+                <strong>• اجرای سریع بدون ساخت EXE:</strong> می‌توانید مستقیماً روی فایل <code className="bg-blue-100 px-1 rounded text-blue-900 font-bold">SolidWorks_Master_App.pyw</code> دبل کلیک کرده و با Python آن را فوراً اجرا نمایید.
               </li>
             </ul>
           </div>
