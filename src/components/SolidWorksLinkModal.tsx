@@ -257,17 +257,41 @@ export const SolidWorksLinkModal: React.FC<SolidWorksLinkModalProps> = ({
           </div>
         </div>
 
-        {/* Steps Guide */}
-        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-2">
-          <h4 className="font-bold text-[#0f172a]">طریقه ساخت فایل EXE در ۳ گام ساده:</h4>
-          <ol className="list-decimal list-inside space-y-1 text-slate-600">
-            <li>فایل‌های <code className="text-blue-700 font-semibold">SolidWorks_Master_App.pyw</code> و <code className="text-amber-700 font-semibold">build_exe.bat</code> را دانلود کنید.</li>
-            <li>هر دو فایل را در یک پوشه قرار دهید و روی <code className="text-amber-700 font-semibold">build_exe.bat</code> دبل کلیک کنید.</li>
-            <li>برنامه به صورت خودکار پایتون و PyInstaller را تنظیم کرده و فایل نصبی مستقل <code className="text-emerald-700 font-semibold">SolidWorks_Master.exe</code> را در پوشه dist تولید می‌کند!</li>
-          </ol>
+        {/* Steps Guide & Troubleshooting */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-2">
+            <h4 className="font-bold text-[#0f172a] flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              طریقه ساخت فایل EXE در ۳ گام ساده:
+            </h4>
+            <ol className="list-decimal list-inside space-y-1.5 text-slate-600 leading-relaxed">
+              <li>فایل‌های <code className="text-blue-700 font-semibold bg-blue-50 px-1 py-0.5 rounded">SolidWorks_Master_App.pyw</code> و <code className="text-amber-700 font-semibold bg-amber-50 px-1 py-0.5 rounded">build_exe.bat</code> را دانلود کنید.</li>
+              <li>هر دو فایل را در یک پوشه قرار دهید و روی <code className="text-amber-700 font-semibold bg-amber-50 px-1 py-0.5 rounded">build_exe.bat</code> کلیک راست کرده و Run as Administrator را بزنید.</li>
+              <li>فایل <code className="text-emerald-700 font-semibold bg-emerald-50 px-1 py-0.5 rounded">SolidWorks_Master.exe</code> در پوشه dist ساخته می‌شود و آماده اجرای یک‌کلیکی است!</li>
+            </ol>
+          </div>
+
+          <div className="p-4 bg-amber-50/80 rounded-xl border border-amber-200 text-xs text-slate-800 space-y-2">
+            <h4 className="font-bold text-amber-900 flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              راهنمای رفع ارورهای احتمالی هنگام ساخت EXE:
+            </h4>
+            <ul className="space-y-1.5 text-slate-700 text-[11px] leading-relaxed">
+              <li>
+                <strong>• ارور 'python' is not recognized:</strong> هنگام نصب پایتون، حتماً گزینه پایین <span className="text-blue-800 font-bold">"Add Python to PATH"</span> را تیک بزنید.
+              </li>
+              <li>
+                <strong>• ارور PyInstaller یا win32com:</strong> اسکریپت به‌روزرسانی شده به‌طور خودکار کتابخانه‌های <code className="bg-amber-100 px-1 rounded">pywin32</code> و <code className="bg-amber-100 px-1 rounded">pythoncom</code> را به‌صورت کامل کامپایل می‌کند.
+              </li>
+              <li>
+                <strong>• اجرای سریع بدون ساخت EXE:</strong> می‌توانید مستقیماً روی فایل <code className="bg-blue-100 px-1 rounded text-blue-900 font-bold">SolidWorks_Master_App.pyw</code> کلیک راست کرده و با Python آن را بدون نیاز به ساخت EXE اجرا کنید.
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
   );
 };
+
 

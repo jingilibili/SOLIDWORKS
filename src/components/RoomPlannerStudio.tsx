@@ -38,27 +38,33 @@ import { CustomModelLibraryModal } from './CustomModelLibraryModal';
 
 export interface RoomLayoutConfig {
   roomType: 'kitchen' | 'bedroom';
-  layoutShape: 'straight' | 'l_shape' | 'u_shape';
+  layoutShape: 'straight' | 'l_shape' | 'u_shape' | 'island_layout';
   wall1Length: number; // mm e.g. 3800
   wall2Length: number; // mm e.g. 2800
   wall3Length: number; // mm e.g. 2400
   cornerAngle: number; // degrees e.g. 90
   ceilingHeight: number; // mm e.g. 2700
   
+  // Kitchen Island Options
+  islandWidthMm?: number;
+  islandDepthMm?: number;
+  islandOverhangMm?: number;
+  islandFeature?: 'table' | 'sink' | 'cooktop';
+
   // Architectural Points (mm from origin)
   sinkLocationMm: number;
   gasLocationMm: number;
   fridgeWidthMm: number;
 
-  // Design Style & Trends
-  designStyle: 'modern_handleless' | 'neoclassic_membrane' | 'classic_wood' | 'minimalist_two_tone';
+  // Design Style & Trends (Updated 2026 Pinterest & Google Styles)
+  designStyle: 'modern_handleless' | 'neoclassic_membrane' | 'classic_wood' | 'minimalist_two_tone' | 'japandi_minimalism' | 'slim_shaker' | 'modern_gola_handleless' | 'industrial_wood_metal' | 'frameless_polyurethane';
   cabinetHeightType: 'standard_220' | 'full_height_to_ceiling' | 'double_decker';
   materialThickness: number; // 16 or 18 mm
 }
 
 export interface CabinetUnitLayout {
   id: string;
-  unitType: 'base_sink' | 'base_gas' | 'base_drawer' | 'base_standard' | 'corner_l' | 'tall_pantry' | 'tall_fridge' | 'wall_standard' | 'murphy_bed' | 'wardrobe' | 'desk';
+  unitType: 'base_sink' | 'base_gas' | 'base_drawer' | 'base_standard' | 'corner_l' | 'tall_pantry' | 'tall_fridge' | 'wall_standard' | 'murphy_bed' | 'wardrobe' | 'desk' | 'island_unit';
   namePersian: string;
   wallIndex: 1 | 2 | 3;
   widthMm: number;
@@ -69,18 +75,22 @@ export interface CabinetUnitLayout {
 
 const DEFAULT_ROOM_CONFIG: RoomLayoutConfig = {
   roomType: 'kitchen',
-  layoutShape: 'l_shape',
+  layoutShape: 'island_layout',
   wall1Length: 3800,
   wall2Length: 2800,
   wall3Length: 2400,
   cornerAngle: 90,
   ceilingHeight: 2700,
+  islandWidthMm: 1800,
+  islandDepthMm: 900,
+  islandOverhangMm: 300,
+  islandFeature: 'table',
   sinkLocationMm: 1200,
   gasLocationMm: 2800,
   fridgeWidthMm: 950,
-  designStyle: 'modern_handleless',
+  designStyle: 'japandi_minimalism',
   cabinetHeightType: 'full_height_to_ceiling',
-  materialThickness: 16
+  materialThickness: 18
 };
 
 interface RoomPlannerStudioProps {
@@ -260,6 +270,24 @@ export const RoomPlannerStudio: React.FC<RoomPlannerStudioProps> = ({
         });
       }
 
+      // Kitchen Island Layout (جزیره مرکزی آشپزخانه)
+      if (config.layoutShape === 'island_layout') {
+        const islandW = config.islandWidthMm || 1800;
+        const islandD = config.islandDepthMm || 900;
+        const islandPosX = Math.max(0, (config.wall1Length - islandW) / 2);
+
+        newUnits.push({
+          id: 'u-island',
+          unitType: 'island_unit',
+          namePersian: `جزیره آشپزخانه ${islandW}×${islandD}mm با صفحه سنگ آبشار و اورپاش صبحانه‌خوری`,
+          wallIndex: 1,
+          widthMm: islandW,
+          heightMm: 870,
+          depthMm: islandD,
+          xPosMm: islandPosX
+        });
+      }
+
       // Wall 2 Layout (if L or U Shape)
       if (config.layoutShape === 'l_shape' || config.layoutShape === 'u_shape') {
         let xOffset2 = 900; // start after corner
@@ -291,6 +319,19 @@ export const RoomPlannerStudio: React.FC<RoomPlannerStudioProps> = ({
             xPosMm: xOffset2
           });
         }
+      } else if (config.layoutShape === 'straight' || config.layoutShape === 'island_layout') {
+        // Stove on Wall 1 if straight or island layout
+        newUnits.push({
+          id: 'u-gas',
+          unitType: 'base_gas',
+          namePersian: 'یونیت گاز صفحه‌ای و فر توکار (دیوار ۱)',
+          wallIndex: 1,
+          widthMm: 900,
+          heightMm: 870,
+          depthMm: 550,
+          xPosMm: xOffset1
+        });
+        xOffset1 += 900;
       }
 
       // Wall 3 Layout (if U-Shape)
@@ -875,16 +916,57 @@ print("VBA Macro launched successfully!")
             {/* Layout Shape Selector (For Kitchen) */}
             {config.roomType === 'kitchen' && (
               <div className="space-y-1">
-                <label className="text-slate-700 font-bold">مدل فضا و زوایا (Shape):</label>
+                <label className="text-slate-700 font-bold">مدل فضا و چیدمان (Kitchen Layout Shape):</label>
                 <select
                   value={config.layoutShape}
                   onChange={(e) => setConfig({ ...config, layoutShape: e.target.value as any })}
                   className="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:border-blue-600 shadow-sm"
                 >
-                  <option value="straight">یک دیواره مستقیم (Straight Wall)</option>
-                  <option value="l_shape">دو دیواره گونیایی L-Shape (استاندارد)</option>
-                  <option value="u_shape">سه دیواره U-Shape (کامل)</option>
+                  <option value="island_layout">🏝️ آشپزخانه جزیره‌دار (Kitchen Island) - ترند مدرن</option>
+                  <option value="l_shape">📐 دو دیواره گونیایی L-Shape (استاندارد)</option>
+                  <option value="u_shape">⏹️ سه دیواره U-Shape (کامل)</option>
+                  <option value="straight">➖ یک دیواره مستقیم خطی (Straight Line)</option>
                 </select>
+              </div>
+            )}
+
+            {/* Kitchen Island Settings Panel */}
+            {config.roomType === 'kitchen' && config.layoutShape === 'island_layout' && (
+              <div className="bg-sky-50 border border-sky-200 p-3.5 rounded-xl space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold text-sky-900">
+                  <span>⚙️ تنظیمات متراژ و ابعاد جزیره (Kitchen Island):</span>
+                  <span className="text-[10px] bg-sky-200 text-sky-800 px-2 py-0.5 rounded-full">جزیره دار</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="text-slate-600 text-[10px] font-bold">طول جزیره (mm):</label>
+                    <input
+                      type="number"
+                      value={config.islandWidthMm || 1800}
+                      onChange={(e) => setConfig({ ...config, islandWidthMm: Number(e.target.value) })}
+                      className="w-full p-1.5 bg-white border border-sky-300 rounded-lg text-slate-800 font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-600 text-[10px] font-bold">عرض/عمق جزیره (mm):</label>
+                    <input
+                      type="number"
+                      value={config.islandDepthMm || 900}
+                      onChange={(e) => setConfig({ ...config, islandDepthMm: Number(e.target.value) })}
+                      className="w-full p-1.5 bg-white border border-sky-300 rounded-lg text-slate-800 font-mono font-bold"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-slate-600 text-[10px] font-bold">اورپاش/پیش‌آمدگی صفحه صبحانه‌خوری (mm):</label>
+                    <input
+                      type="number"
+                      value={config.islandOverhangMm || 300}
+                      onChange={(e) => setConfig({ ...config, islandOverhangMm: Number(e.target.value) })}
+                      className="w-full p-1.5 bg-white border border-sky-300 rounded-lg text-slate-800 font-mono font-bold"
+                      placeholder="مثال: ۳۰۰ میلیمتر برای جای پای صندلی"
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -945,23 +1027,31 @@ print("VBA Macro launched successfully!")
               </div>
             </div>
 
-            {/* Style & Trends Selector */}
+            {/* Style & Trends Selector (Google & Pinterest 2026 Trends) */}
             <div className="space-y-1 pt-2 border-t border-slate-200">
-              <label className="text-slate-700 font-bold flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                سبک طراحی روز و متدهای جدید:
+              <label className="text-slate-700 font-bold flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                  سبک‌های طراحی ترند روز (Google & Pinterest 2026):
+                </span>
+                <span className="text-[10px] text-emerald-600 font-bold">جدید</span>
               </label>
               <select
                 value={config.designStyle}
                 onChange={(e) => setConfig({ ...config, designStyle: e.target.value as any })}
                 className="w-full bg-white border border-slate-300 rounded-xl p-2.5 font-bold text-slate-800 focus:border-blue-600 shadow-sm"
               >
-                <option value="modern_handleless">مدرن دستگیره مخفی (G-Profile / J-Pull)</option>
-                <option value="neoclassic_membrane">نئوکلاسیک ممبران / انزو (Enzo Style)</option>
-                <option value="classic_wood">کلاسیک روکش چوب طبیعی و سرستون</option>
-                <option value="minimalist_two_tone">مینیمال دو رنگ (ترکیب چوب و سفید صابونی)</option>
+                <option value="japandi_minimalism">🌿 ژاپاندی مینیمال (Japandi Minimalist - چوب طبیعی و رنگ شنی)</option>
+                <option value="slim_shaker">✨ اسلیم شیکر (Slim / Skinny Shaker - فریم باریک ۱۰mm ترند ۲۰۲۶)</option>
+                <option value="modern_gola_handleless">🖤 مدرن بدون دستگیره گولا (Modern Gola Profile L & U)</option>
+                <option value="neoclassic_membrane">👑 نئوکلاسیک ممبران وکیوم با ابزار، سرستون و تاج</option>
+                <option value="industrial_wood_metal">🏭 صنعتی مدرن (Industrial Wood & Black Metal Frame)</option>
+                <option value="frameless_polyurethane">🎨 پلی‌اورتان مات بدون درز با لبه‌های گرد (Frameless)</option>
+                <option value="classic_wood">🪵 کلاسیک روکش چوب طبیعی و سرستون</option>
+                <option value="minimalist_two_tone">⚪ مینیمال دو رنگ (ترکیب چوب و سفید صابونی)</option>
               </select>
             </div>
+
           </div>
         </div>
 

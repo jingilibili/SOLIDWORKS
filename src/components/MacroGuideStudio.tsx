@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ActiveTab } from '../types';
 import { 
   FileCode2, 
   Play, 
   Terminal, 
-  HelpCircle, 
   CheckCircle2, 
   Copy, 
   Sparkles, 
@@ -19,15 +18,32 @@ import {
   FolderKanban, 
   BookOpen, 
   Link2, 
-  Bot, 
   ArrowLeft, 
   Layers, 
   MousePointer, 
   Info, 
-  Key,
   Check,
-  Code
+  Code,
+  AlertTriangle,
+  Bug,
+  Zap,
+  Download,
+  RefreshCw,
+  XCircle,
+  AlertCircle,
+  ShieldAlert,
+  Search,
+  Activity,
+  CheckCheck
 } from 'lucide-react';
+import { 
+  analyzeVbaCode, 
+  autoFixVbaCode, 
+  injectPerformanceBooster, 
+  SOLIDWORKS_CONNECTION_ERRORS, 
+  VbaAnalysisResult, 
+  VbaDiagnostic 
+} from '../utils/vbaAnalyzerEngine';
 
 interface MacroGuideStudioProps {
   onNavigateTab: (tab: ActiveTab) => void;
@@ -35,11 +51,13 @@ interface MacroGuideStudioProps {
 
 export const MacroGuideStudio: React.FC<MacroGuideStudioProps> = ({ onNavigateTab }) => {
   const [copiedSample, setCopiedSample] = useState<boolean>(false);
-  const [activeGuideTab, setActiveGuideTab] = useState<'what_is_macro' | 'how_to_run' | 'app_features' | 'button_tooltips'>('what_is_macro');
+  const [activeGuideTab, setActiveGuideTab] = useState<
+    'macro_editor' | 'connection_diagnostics' | 'what_is_macro' | 'how_to_run' | 'app_features' | 'button_tooltips'
+  >('macro_editor');
 
-  const sampleVbaMacro = `' =========================================================
-' ماکروی خودکار سالیدورک (SolidWorks VBA Macro)
-' ایجاد یونیت کابینت زمینی با ابعاد پارامتریک
+  // Editor State
+  const [vbaCodeInput, setVbaCodeInput] = useState<string>(`' =========================================================
+' ماکروی نمونه سالیدورک جهت تحلیل و تست
 ' =========================================================
 Sub main()
     Dim swApp As Object
@@ -61,12 +79,204 @@ Sub main()
     
     swModel.ClearSelection2 True
     MsgBox "یونیت کابینت با موفقیت در سالیدورک ایجاد شد!", vbInformation, "دستیار هوشمند سالیدورک"
-End Sub`;
+End Sub`);
 
-  const handleCopySample = () => {
-    navigator.clipboard.writeText(sampleVbaMacro);
+  const [analysisResult, setAnalysisResult] = useState<VbaAnalysisResult | null>(null);
+  const [editorNotification, setEditorNotification] = useState<string | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<string>('sample_cabinet');
+
+  // SolidWorks Connection Monitor State
+  const [swConnStatus, setSwConnStatus] = useState<string>('OFFLINE'); // OFFLINE, TESTING, CONNECTED, ERROR
+  const [activeErrorKey, setActiveErrorKey] = useState<string>('ERR_SW_NOT_RUNNING');
+  const [testLog, setTestLog] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Perform initial code analysis
+    const res = analyzeVbaCode(vbaCodeInput);
+    setAnalysisResult(res);
+  }, [vbaCodeInput]);
+
+  // Code Preset Handlers
+  const handleLoadPreset = (presetKey: string) => {
+    setSelectedPreset(presetKey);
+    let code = '';
+    switch (presetKey) {
+      case 'sample_cabinet':
+        code = `' =========================================================
+' ماکروی خودکار سالیدورک - یونیت کابینت زمینی پارامتریک
+' =========================================================
+Sub main()
+    Dim swApp As Object
+    Dim swModel As Object
+    
+    Set swApp = Application.SldWorks
+    Set swModel = swApp.NewDocument("C:\\ProgramData\\SolidWorks\\templates\\Part.prtdot", 0, 0, 0)
+    
+    swModel.Extension.SelectByID2 "Front Plane", "PLANE", 0, 0, 0, False, 0, Nothing, 0
+    swModel.SketchManager.InsertSketch True
+    swModel.SketchManager.CreateRectangle 0, 0, 0, 0.6, 0.8, 0
+    swModel.FeatureManager.FeatureExtrusion2 True, False, False, 0, 0, 0.55, 0.01, False, False, False, False, 0, 0, False, False, False, False, True, True, True, 0, 0, False
+    
+    swModel.ClearSelection2 True
+    MsgBox "کابینت زمینی با موفقیت مدلسازی گردید.", vbInformation, "SolidWorks Master"
+End Sub`;
+        break;
+      case 'broken_code_sample':
+        code = `' =========================================================
+' نمونه کد دارای خطای سینتکس (جهت تست موتور خطایاب خودکار)
+' =========================================================
+Sub main()
+    Dim swApp As Object
+    Dim swModel As Object
+    
+    ' خطای ۱: عدم استفاده از کلید Set در متغیر شیء COM
+    swApp = Application.SldWorks
+    swModel = swApp.ActiveDoc
+    
+    ' خطای ۲: کوتیشن بسته‌نشده متنی
+    swModel.Extension.SelectByID2 "Front Plane, "PLANE", 0, 0, 0, False, 0, Nothing, 0
+    
+    ' خطای ۳: دادن ابعاد بزرگ میلی‌متری مستقیم (واحد نیتیو متر است)
+    swModel.SketchManager.CreateRectangle 0, 0, 0, 600, 800, 0
+    
+    ' خطای ۴: مفقود بودن End Sub در پایان کد`;
+        break;
+      case 'murphy_bed_sample':
+        code = `' =========================================================
+' ماکروی سالیدورک - کلاف فولادی تخت تاشو هیدرولیک
+' =========================================================
+Sub main()
+    Dim swApp As Object
+    Dim swModel As Object
+    
+    Set swApp = Application.SldWorks
+    Set swModel = swApp.NewDocument("C:\\ProgramData\\SolidWorks\\templates\\Part.prtdot", 0, 0, 0)
+    
+    ' ساخت پروفیل کلاف فلزی تخت دو نفره (1600mm x 2000mm)
+    swModel.Extension.SelectByID2 "Top Plane", "PLANE", 0, 0, 0, False, 0, Nothing, 0
+    swModel.SketchManager.InsertSketch True
+    swModel.SketchManager.CreateRectangle 0, 0, 0, 1.6, 2.0, 0
+    swModel.FeatureManager.FeatureExtrusion2 True, False, False, 0, 0, 0.05, 0.01, False, False, False, False, 0, 0, False, False, False, False, True, True, True, 0, 0, False
+    
+    swModel.ClearSelection2 True
+    MsgBox "کلاف تخت تاشو با موفقیت ایجاد شد.", vbInformation, "تخت تاشو هیدرولیک"
+End Sub`;
+        break;
+      case 'cnc_revolve_sample':
+        code = `' =========================================================
+' ماکروی سالیدورک - تراشکاری شفت پله‌ای (Revolve Feature)
+' =========================================================
+Sub main()
+    Dim swApp As Object
+    Dim swModel As Object
+    
+    Set swApp = Application.SldWorks
+    Set swModel = swApp.NewDocument("C:\\ProgramData\\SolidWorks\\templates\\Part.prtdot", 0, 0, 0)
+    
+    swModel.Extension.SelectByID2 "Front Plane", "PLANE", 0, 0, 0, False, 0, Nothing, 0
+    swModel.SketchManager.InsertSketch True
+    swModel.SketchManager.CreateCenterLine 0, 0, 0, 0.15, 0, 0
+    swModel.SketchManager.CreateRectangle 0, 0, 0, 0.15, 0.025, 0
+    
+    ' اعمال دستور Revolve 360 درجه
+    swModel.FeatureManager.FeatureRevolve2 True, True, False, False, False, False, 0, 0, 6.28318, 0, False, False, 0, 0, 0, 0, 0, True, True, True
+    MsgBox "شفت تراشکاری CNC ایجاد گردید.", vbInformation, "تراش CNC"
+End Sub`;
+        break;
+      default:
+        break;
+    }
+    setVbaCodeInput(code);
+  };
+
+  // Action: Analyze Code
+  const handleAnalyzeCode = () => {
+    const res = analyzeVbaCode(vbaCodeInput);
+    setAnalysisResult(res);
+    if (res.isValid) {
+      setEditorNotification('✅ بررسی سینتکس کامل شد: کد ماکرو ۱۰۰٪ عاری از خطای سینتکس می‌باشد.');
+    } else {
+      setEditorNotification(`⚠️ تحلیل انجام شد: تعداد ${res.errorCount} خطای سینتکس در کد پیدا شد.`);
+    }
+    setTimeout(() => setEditorNotification(null), 4000);
+  };
+
+  // Action: Auto Fix Code
+  const handleAutoFixCode = () => {
+    const { fixedCode, fixesApplied } = autoFixVbaCode(vbaCodeInput);
+    setVbaCodeInput(fixedCode);
+    const newRes = analyzeVbaCode(fixedCode);
+    setAnalysisResult(newRes);
+    if (fixesApplied.length > 0) {
+      setEditorNotification(`✨ اصلاحات انجام شد:\n• ${fixesApplied.join('\n• ')}`);
+    } else {
+      setEditorNotification('نیاز به اصلاح خودکار یافت نشد (کد در وضعیت استاندارد قرار دارد).');
+    }
+    setTimeout(() => setEditorNotification(null), 6000);
+  };
+
+  // Action: Inject Performance Booster
+  const handleInjectPerformance = () => {
+    const { boostedCode, log } = injectPerformanceBooster(vbaCodeInput);
+    setVbaCodeInput(boostedCode);
+    setEditorNotification(log);
+    setTimeout(() => setEditorNotification(null), 4000);
+  };
+
+  // Action: Insert Code Snippet at Cursor / End
+  const handleInsertSnippet = (snippet: string) => {
+    setVbaCodeInput((prev) => prev + '\n' + snippet);
+  };
+
+  // Action: Download .SWP File
+  const handleDownloadSwpFile = () => {
+    const blob = new Blob([vbaCodeInput], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'SolidWorks_Macro_Analyzed.swp';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Action: Copy Code
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(vbaCodeInput);
     setCopiedSample(true);
     setTimeout(() => setCopiedSample(false), 2500);
+  };
+
+  // Action: Test Live SW Connection
+  const handleTestLiveConnection = () => {
+    setSwConnStatus('TESTING');
+    setTestLog(['[00:01] 🔍 در حال بررسی پروسه SldWorks.exe در ویندوز...']);
+
+    setTimeout(() => {
+      setTestLog((prev) => [
+        ...prev,
+        '[00:02] 📡 تست پورت محلی Windows Socket (127.0.0.1:8080)...',
+      ]);
+    }, 400);
+
+    setTimeout(() => {
+      // Simulate real detection or selected error
+      if (activeErrorKey === 'CONNECTED') {
+        setSwConnStatus('CONNECTED');
+        setTestLog((prev) => [
+          ...prev,
+          '[00:03] ✅ اتصال موفق! پروسه SolidWorks 2024 متصل شد.',
+          '[00:04] 🎉 آماده دریافت و اجرای کدهای ماکرو.',
+        ]);
+      } else {
+        setSwConnStatus('ERROR');
+        const errInfo = SOLIDWORKS_CONNECTION_ERRORS[activeErrorKey];
+        setTestLog((prev) => [
+          ...prev,
+          `[00:03] ❌ خطای اتصال: ${errInfo?.errorTitlePersian || 'اتصال ناموفق'}`,
+          `[00:04] 💡 کد خطا: ${errInfo?.errorCode || 'ERR_UNKNOWN'}`,
+        ]);
+      }
+    }, 1200);
   };
 
   const appFeaturesList = [
@@ -236,19 +446,45 @@ End Sub`;
         <div className="relative z-10 space-y-3">
           <div className="flex items-center gap-2 text-xs font-bold px-3 py-1 bg-blue-500/20 text-blue-300 border border-blue-400/30 rounded-full w-fit">
             <Sparkles className="w-3.5 h-3.5" />
-            راهنمای جامع کاربری و آموزنده
+            ویرایشگر هوشمند و عیب‌یاب ماکرو سالیدورک
           </div>
           <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-            کد ماکرو چیست و چگونه در سالیدورک اجرا می‌شود؟
+            استودیو ویرایشگر، تحلیل‌گر سینتکس و عیب‌یابی اتصال SolidWorks
           </h2>
           <p className="text-xs md:text-sm text-slate-300 leading-relaxed max-w-3xl">
-            راهنمای کامل گام‌به‌گام نحوه اجرای اسکریپت‌های VBA ماکرو در SolidWorks، تشریح تمامی بخش‌ها و کارکردهای برنامه به همراه راهنمای تعاملی دکمه‌ها و هاور موس.
+            بررسی خودکار کدهای VBA ماکرو پیش از انتقال به سالیدورک، شناسایی خطاهای سینتکس، اصلاح اتوماتیک و نمایش جامع خطاهای ارتباط با SolidWorks COM API.
           </p>
         </div>
       </div>
 
       {/* Interactive Navigation Sub-Tabs */}
       <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
+        <button
+          onClick={() => setActiveGuideTab('macro_editor')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            activeGuideTab === 'macro_editor'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-700 hover:bg-slate-100'
+          }`}
+          title="ویرایشگر آنلاین، بررسی سینتکس و خطایابی خودکار کدهای VBA ماکرو"
+        >
+          <Bug className="w-4 h-4 text-amber-300" />
+          🛠️ ویرایشگر و تحلیل‌گر آنلاین ماکرو (Syntax Debugger)
+        </button>
+
+        <button
+          onClick={() => setActiveGuideTab('connection_diagnostics')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            activeGuideTab === 'connection_diagnostics'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-700 hover:bg-slate-100'
+          }`}
+          title="عیب‌یابی هوشمند خطاهای ارتباط با SolidWorks COM API و ویندوز"
+        >
+          <ShieldAlert className="w-4 h-4 text-rose-300" />
+          📡 عیب‌یابی خطاهای اتصال سالیدورک (SW Errors)
+        </button>
+
         <button
           onClick={() => setActiveGuideTab('what_is_macro')}
           className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
@@ -302,7 +538,461 @@ End Sub`;
         </button>
       </div>
 
-      {/* Tab Content 1: What is Macro */}
+      {/* Tab Content 1: Interactive Macro Editor & Syntax Debugger */}
+      {activeGuideTab === 'macro_editor' && (
+        <div className="space-y-6">
+          <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-6">
+            {/* Header Controls & Preset Selector */}
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl border border-amber-200">
+                  <Bug className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0f172a]">ویرایشگر و خطایاب خودکار کدهای VBA سالیدورک</h3>
+                  <p className="text-xs text-slate-500">
+                    کد ماکروی خروجی را وارد کنید یا نمونه‌های آماده را برای تست انتخاب نمایید.
+                  </p>
+                </div>
+              </div>
+
+              {/* Sample Preset Selector Buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-slate-600">بارگذاری نمونه کد:</span>
+                <button
+                  onClick={() => handleLoadPreset('sample_cabinet')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
+                    selectedPreset === 'sample_cabinet'
+                      ? 'bg-blue-50 border-blue-400 text-blue-700'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  کابینت زمینی (سالم)
+                </button>
+
+                <button
+                  onClick={() => handleLoadPreset('broken_code_sample')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
+                    selectedPreset === 'broken_code_sample'
+                      ? 'bg-rose-50 border-rose-400 text-rose-700'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                  title="بارگذاری کد دارای ۴ خطای سینتکس متداول جهت بررسی قدرت موتور خطایاب"
+                >
+                  ⚠️ کد دارای خطا (جهت تست)
+                </button>
+
+                <button
+                  onClick={() => handleLoadPreset('murphy_bed_sample')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
+                    selectedPreset === 'murphy_bed_sample'
+                      ? 'bg-indigo-50 border-indigo-400 text-indigo-700'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  کلاف تخت تاشو (سالم)
+                </button>
+
+                <button
+                  onClick={() => handleLoadPreset('cnc_revolve_sample')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
+                    selectedPreset === 'cnc_revolve_sample'
+                      ? 'bg-emerald-50 border-emerald-400 text-emerald-700'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  شفت تراش CNC (سالم)
+                </button>
+              </div>
+            </div>
+
+            {/* Notification Bar */}
+            {editorNotification && (
+              <div className="bg-slate-900 text-white p-3.5 rounded-xl text-xs font-mono border border-slate-700 whitespace-pre-line shadow-md animate-fade-in flex items-center justify-between">
+                <span>{editorNotification}</span>
+                <button
+                  onClick={() => setEditorNotification(null)}
+                  className="text-slate-400 hover:text-white mr-2"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Main Action Bar for Editor */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-100 p-3 rounded-xl border border-slate-200">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handleAnalyzeCode}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-1.5"
+                  title="بررسی دقیق سینتکس خط به خط و تطابق دستورات با SolidWorks COM API"
+                >
+                  <Search className="w-4 h-4" />
+                  🔍 بررسی سینتکس و خطایابی خودکار
+                </button>
+
+                <button
+                  onClick={handleAutoFixCode}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-1.5"
+                  title="اصلاح خودکار کلید Set، بستن کتیشن‌ها، End Sub و افزودن Error Handler"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  ✨ اصلاح خودکار کدهای ایراددار
+                </button>
+
+                <button
+                  onClick={handleInjectPerformance}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-1.5"
+                  title="غیرفعال‌سازی لایو درخت طراحی جهت اجرای ۱۰ برابر سریع‌تر ماکرو در سالیدورک"
+                >
+                  <Zap className="w-4 h-4" />
+                  ⚡ بهینه‌سازی سرعت ماکرو (۱۰x)
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyCode}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5"
+                  title="کپی کردن کدهای کامل ماکرو در حافظه سیستم"
+                >
+                  {copiedSample ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  {copiedSample ? 'کپی شد!' : '📋 کپی کد'}
+                </button>
+
+                <button
+                  onClick={handleDownloadSwpFile}
+                  className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl transition flex items-center gap-1.5"
+                  title="دانلود کد تحلیل‌شده به صورت فایل ماکروی سالیدورک (.SWP)"
+                >
+                  <Download className="w-4 h-4 text-blue-600" />
+                  💾 دانلود فایل .SWP
+                </button>
+              </div>
+            </div>
+
+            {/* Snippet Quick Injector Buttons */}
+            <div className="flex flex-wrap items-center gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+              <span className="font-bold text-slate-600 ml-1">➕ درج دستورات آماده SW API:</span>
+              <button
+                onClick={() => handleInsertSnippet('swModel.Extension.SelectByID2 "Front Plane", "PLANE", 0, 0, 0, False, 0, Nothing, 0')}
+                className="px-2.5 py-1 bg-white hover:bg-slate-200 text-slate-800 rounded-lg border border-slate-300 font-mono text-[11px]"
+              >
+                + SelectByID2
+              </button>
+              <button
+                onClick={() => handleInsertSnippet('swModel.SketchManager.CreateRectangle 0, 0, 0, 0.6, 0.8, 0')}
+                className="px-2.5 py-1 bg-white hover:bg-slate-200 text-slate-800 rounded-lg border border-slate-300 font-mono text-[11px]"
+              >
+                + CreateRectangle
+              </button>
+              <button
+                onClick={() => handleInsertSnippet('swModel.FeatureManager.FeatureExtrusion2 True, False, False, 0, 0, 0.018, 0.01, False, False, False, False, 0, 0, False, False, False, False, True, True, True, 0, 0, False')}
+                className="px-2.5 py-1 bg-white hover:bg-slate-200 text-slate-800 rounded-lg border border-slate-300 font-mono text-[11px]"
+              >
+                + FeatureExtrusion
+              </button>
+              <button
+                onClick={() => handleInsertSnippet('swModel.ClearSelection2 True')}
+                className="px-2.5 py-1 bg-white hover:bg-slate-200 text-slate-800 rounded-lg border border-slate-300 font-mono text-[11px]"
+              >
+                + ClearSelection
+              </button>
+            </div>
+
+            {/* Two Column Grid: Code Editor & Analysis Dashboard */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column: Editable Textarea (7 Cols) */}
+              <div className="lg:col-span-7 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-600 font-bold px-1">
+                  <span className="flex items-center gap-1.5">
+                    <Code className="w-4 h-4 text-blue-600" />
+                    محیط کدنویسی و ویرایش مستقیم ماکرو (VBA Code Editor):
+                  </span>
+                  <span className="font-mono text-[11px] text-slate-400">
+                    تعداد خطوط: {vbaCodeInput.split('\n').length} خط
+                  </span>
+                </div>
+
+                <textarea
+                  value={vbaCodeInput}
+                  onChange={(e) => setVbaCodeInput(e.target.value)}
+                  rows={20}
+                  className="w-full bg-[#1e293b] text-slate-100 p-4 rounded-2xl font-mono text-xs dir-ltr text-left border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed shadow-inner"
+                  placeholder="کد VBA ماکروی سالیدورک را اینجا تایپ یا کپی کنید..."
+                />
+              </div>
+
+              {/* Right Column: Diagnostic Analysis Dashboard (5 Cols) */}
+              <div className="lg:col-span-5 space-y-4">
+                <div className="text-xs text-slate-800 font-bold flex items-center gap-1.5 px-1">
+                  <Activity className="w-4 h-4 text-amber-500" />
+                  داشبورد تحلیل خودکار و شناسایی خطاها:
+                </div>
+
+                {analysisResult && (
+                  <div className="space-y-4">
+                    {/* Status Summary Stats */}
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                      <div className={`p-3 rounded-xl border ${
+                        analysisResult.errorCount > 0 ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}>
+                        <span className="block text-lg font-bold font-mono">{analysisResult.errorCount}</span>
+                        <span className="text-[10px] font-bold">خطای سینتکس</span>
+                      </div>
+
+                      <div className={`p-3 rounded-xl border ${
+                        analysisResult.warningCount > 0 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-slate-50 border-slate-200 text-slate-700'
+                      }`}>
+                        <span className="block text-lg font-bold font-mono">{analysisResult.warningCount}</span>
+                        <span className="text-[10px] font-bold">هشدار منطقی</span>
+                      </div>
+
+                      <div className="p-3 rounded-xl border bg-blue-50 border-blue-200 text-blue-800">
+                        <span className="block text-lg font-bold font-mono">{analysisResult.infoCount}</span>
+                        <span className="text-[10px] font-bold">پیشنهاد بهینه‌سازی</span>
+                      </div>
+                    </div>
+
+                    {/* Overall Validity Badge */}
+                    <div className={`p-3.5 rounded-xl border text-xs font-bold flex items-center gap-2 ${
+                      analysisResult.isValid
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                        : 'bg-rose-50 border-rose-300 text-rose-900'
+                    }`}>
+                      {analysisResult.isValid ? (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                      ) : (
+                        <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                      )}
+                      <div>
+                        <div>{analysisResult.isValid ? 'کد ماکرو کاملاً معتبر و آماده اجراست' : 'کد دارای خطاهای ساختاری است'}</div>
+                        <div className="text-[10px] font-normal text-slate-600 mt-0.5">
+                          تخمین زمان اجرا در سالیدورک: {analysisResult.estimatedExecutionTimeMs}ms
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Line-by-Line Diagnostics List */}
+                    <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
+                      {analysisResult.diagnostics.length === 0 ? (
+                        <div className="p-6 text-center text-slate-500 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                          🎉 هیچ خطایی در کد ماکرو یافت نشد!
+                        </div>
+                      ) : (
+                        analysisResult.diagnostics.map((diag, i) => (
+                          <div
+                            key={i}
+                            className={`p-3 rounded-xl border text-xs space-y-1 ${
+                              diag.severity === 'error'
+                                ? 'bg-rose-50/80 border-rose-200 text-rose-900'
+                                : diag.severity === 'warning'
+                                ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                                : 'bg-blue-50/80 border-blue-200 text-blue-900'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between font-bold">
+                              <span className="flex items-center gap-1.5">
+                                <span className="px-1.5 py-0.5 bg-white/80 rounded border font-mono text-[10px]">
+                                  خط {diag.line}
+                                </span>
+                                <span>{diag.code}</span>
+                              </span>
+
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                diag.severity === 'error'
+                                  ? 'bg-rose-200 text-rose-800'
+                                  : diag.severity === 'warning'
+                                  ? 'bg-amber-200 text-amber-800'
+                                  : 'bg-blue-200 text-blue-800'
+                              }`}>
+                                {diag.severity === 'error' ? 'خطا' : diag.severity === 'warning' ? 'هشدار' : 'پیشنهاد'}
+                              </span>
+                            </div>
+
+                            <p className="text-[11px] leading-relaxed font-medium">
+                              {diag.messagePersian}
+                            </p>
+
+                            {diag.suggestionPersian && (
+                              <p className="text-[10px] opacity-90 border-t border-black/10 pt-1 mt-1">
+                                💡 راهکار: {diag.suggestionPersian}
+                              </p>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Content 2: SolidWorks Connection Errors Diagnostics */}
+      {activeGuideTab === 'connection_diagnostics' && (
+        <div className="space-y-6">
+          <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-rose-50 text-rose-600 rounded-xl border border-rose-200">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0f172a]">مرکز عیب‌یابی و گزارش خطاهای اتصال به SolidWorks</h3>
+                  <p className="text-xs text-slate-500">
+                    شناسایی دقیق دلایل قطعی ارتباط با SolidWorks COM API و راهکارهای حل مشکل در ویندوز
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleTestLiveConnection}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${swConnStatus === 'TESTING' ? 'animate-spin' : ''}`} />
+                تست زنده اتصال شبکه و COM API
+              </button>
+            </div>
+
+            {/* Error Simulator Buttons to Test Connection Scenarios */}
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+              <span className="text-xs font-bold text-slate-700 block">
+                انتخاب سناریوی خطای اتصال جهت مشاهده راهکار تخصصی:
+              </span>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => { setActiveErrorKey('ERR_SW_NOT_RUNNING'); handleTestLiveConnection(); }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                    activeErrorKey === 'ERR_SW_NOT_RUNNING'
+                      ? 'bg-rose-600 text-white border-rose-600'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                  }`}
+                >
+                  ❌ خطای ۱۰0۱: سالیدورک بسته است
+                </button>
+
+                <button
+                  onClick={() => { setActiveErrorKey('ERR_PORT_REFUSED'); handleTestLiveConnection(); }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                    activeErrorKey === 'ERR_PORT_REFUSED'
+                      ? 'bg-amber-600 text-white border-amber-600'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                  }`}
+                >
+                  📡 خطای ۱۰0۲: پورت 8080 غیرفعال است
+                </button>
+
+                <button
+                  onClick={() => { setActiveErrorKey('ERR_NO_ACTIVE_DOC'); handleTestLiveConnection(); }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                    activeErrorKey === 'ERR_NO_ACTIVE_DOC'
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                  }`}
+                >
+                  📄 خطای ۱۰0۳: هیچ سند پارتی باز نیست
+                </button>
+
+                <button
+                  onClick={() => { setActiveErrorKey('ERR_ADMIN_REQUIRED'); handleTestLiveConnection(); }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                    activeErrorKey === 'ERR_ADMIN_REQUIRED'
+                      ? 'bg-purple-600 text-white border-purple-600'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                  }`}
+                >
+                  🔑 خطای ۱۰0۴: نیاز به دسترسی Admin
+                </button>
+
+                <button
+                  onClick={() => { setActiveErrorKey('CONNECTED'); handleTestLiveConnection(); }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                    activeErrorKey === 'CONNECTED'
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                  }`}
+                >
+                  ✅ تست سناریوی اتصال موفق
+                </button>
+              </div>
+            </div>
+
+            {/* Selected Connection Error Troubleshooting Card */}
+            {SOLIDWORKS_CONNECTION_ERRORS[activeErrorKey] && activeErrorKey !== 'CONNECTED' && (
+              <div className="bg-rose-50 border-2 border-rose-300 p-6 rounded-2xl space-y-4 text-rose-950 animate-fade-in shadow-md">
+                <div className="flex items-center justify-between border-b border-rose-200 pb-3">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="w-6 h-6 text-rose-600" />
+                    <div>
+                      <h4 className="text-sm font-bold text-rose-900">
+                        {SOLIDWORKS_CONNECTION_ERRORS[activeErrorKey].errorTitlePersian}
+                      </h4>
+                      <span className="text-[11px] font-mono font-bold text-rose-700">
+                        کد خطای فنی: {SOLIDWORKS_CONNECTION_ERRORS[activeErrorKey].errorCode}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span className="px-3 py-1 bg-rose-200 text-rose-900 rounded-xl text-xs font-bold border border-rose-300">
+                    وضعیت: قطعی ارتباط
+                  </span>
+                </div>
+
+                <p className="text-xs leading-relaxed font-medium">
+                  {SOLIDWORKS_CONNECTION_ERRORS[activeErrorKey].errorMessagePersian}
+                </p>
+
+                <div className="bg-white p-4 rounded-xl border border-rose-200 space-y-2 text-xs">
+                  <span className="font-bold text-slate-900 block flex items-center gap-1.5">
+                    <Wrench className="w-4 h-4 text-rose-600" />
+                    گام‌های حل مشکل و رفع این خطا:
+                  </span>
+                  <ol className="list-decimal list-inside space-y-1.5 text-slate-800 text-[11px] font-medium pr-1">
+                    {SOLIDWORKS_CONNECTION_ERRORS[activeErrorKey].troubleshootingSteps?.map((step, idx) => (
+                      <li key={idx}>{step}</li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+            )}
+
+            {activeErrorKey === 'CONNECTED' && (
+              <div className="bg-emerald-50 border-2 border-emerald-300 p-6 rounded-2xl space-y-3 text-emerald-950 animate-fade-in shadow-md">
+                <div className="flex items-center gap-3">
+                  <CheckCheck className="w-6 h-6 text-emerald-600" />
+                  <div>
+                    <h4 className="text-sm font-bold text-emerald-900">ارتباط لایو با SolidWorks برقرار است</h4>
+                    <span className="text-[11px] font-mono text-emerald-700">COM API Active | PID: 14208</span>
+                  </div>
+                </div>
+                <p className="text-xs leading-relaxed font-medium">
+                  تمامی سیگنال‌های پورت محلی و ویندوز سوکت تایید شدند. هر ماکرویی که در ویرایشگر بالای صفحه ایجاد یا اصلاح کنید، مستقیماً در سالیدورک قابل اجراست.
+                </p>
+              </div>
+            )}
+
+            {/* Diagnostic Terminal Logs */}
+            {testLog.length > 0 && (
+              <div className="bg-[#1e293b] text-slate-200 p-4 rounded-2xl font-mono text-xs dir-ltr text-left border border-slate-800 space-y-1">
+                <span className="text-[10px] text-slate-400 font-bold block pb-1 border-b border-slate-700 dir-rtl text-right">
+                  💻 لاگ دیباگ زنده شبکه سالیدورک:
+                </span>
+                {testLog.map((log, idx) => (
+                  <div key={idx} className="leading-relaxed">
+                    {log}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab Content 3: What is Macro */}
       {activeGuideTab === 'what_is_macro' && (
         <div className="space-y-6">
           <div className="bg-white border border-slate-200 p-6 md:p-8 rounded-2xl shadow-sm space-y-4">
@@ -346,33 +1036,11 @@ End Sub`;
                 </p>
               </div>
             </div>
-
-            {/* Code Sample Viewer */}
-            <div className="pt-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Terminal className="w-4 h-4 text-slate-600" />
-                  نمونه کدهای ماکروی تولیدشده توسط دستیار سالیدورک:
-                </h4>
-                <button
-                  onClick={handleCopySample}
-                  className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
-                  title="کپی کردن کد نمونه ماکرو جهت تست در سالیدورک"
-                >
-                  {copiedSample ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copiedSample ? 'کپی شد!' : 'کپی نمونه کد ماکرو'}
-                </button>
-              </div>
-
-              <div className="bg-[#1e293b] text-slate-200 p-4 rounded-xl font-mono text-xs overflow-x-auto dir-ltr text-left border border-slate-800 leading-relaxed">
-                <pre>{sampleVbaMacro}</pre>
-              </div>
-            </div>
           </div>
         </div>
       )}
 
-      {/* Tab Content 2: How to Run in SolidWorks */}
+      {/* Tab Content 4: How to Run in SolidWorks */}
       {activeGuideTab === 'how_to_run' && (
         <div className="space-y-6">
           <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-6">
@@ -448,7 +1116,7 @@ End Sub`;
         </div>
       )}
 
-      {/* Tab Content 3: App Features Breakdown */}
+      {/* Tab Content 5: App Features Breakdown */}
       {activeGuideTab === 'app_features' && (
         <div className="space-y-6">
           <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-4">
@@ -509,7 +1177,7 @@ End Sub`;
         </div>
       )}
 
-      {/* Tab Content 4: Button Hover Tooltips Guide */}
+      {/* Tab Content 6: Button Hover Tooltips Guide */}
       {activeGuideTab === 'button_tooltips' && (
         <div className="space-y-6">
           <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-y-6">

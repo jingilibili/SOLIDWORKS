@@ -226,7 +226,13 @@ export const Room3DViewer: React.FC<Room3DViewerProps> = ({
 
       const unitGroup = new THREE.Group();
 
-      if (unit.wallIndex === 1) {
+      if (unit.unitType === 'island_unit') {
+        // Kitchen Island Center Positioning
+        const uY = uH / 2;
+        const uXpos = uX;
+        const uZpos = Math.max(1.5, w2 / 2);
+        unitGroup.position.set(uXpos, uY + (isSelected ? 0.05 : 0), uZpos + (isSelected ? 0.05 : 0));
+      } else if (unit.wallIndex === 1) {
         // Wall 1 Positioning (along X)
         let uY = uH / 2;
         let uZ = uD / 2;
@@ -362,6 +368,37 @@ export const Room3DViewer: React.FC<Room3DViewerProps> = ({
         const doorBot = new THREE.Mesh(new THREE.BoxGeometry(uW - 0.008, uH * 0.5, 0.018), baseDoorMat);
         doorBot.position.set(0, -uH * 0.2, uD / 2 + 0.01);
         unitGroup.add(doorBot);
+      } else if (unit.unitType === 'island_unit') {
+        // Kitchen Island Center Carcass & Waterfall Quartz
+        const body = new THREE.Mesh(new THREE.BoxGeometry(uW - 0.04, uH - 0.05, uD - 0.04), activeCarcassMat);
+        unitGroup.add(body);
+
+        // Waterfall Quartz Countertop Top
+        const counter = new THREE.Mesh(new THREE.BoxGeometry(uW + 0.06, 0.06, uD + 0.15), counterMat);
+        counter.position.set(0, uH / 2 - 0.02, 0.03);
+        unitGroup.add(counter);
+
+        // Waterfall Side Legs
+        const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.06, uH - 0.02, uD + 0.15), counterMat);
+        sideL.position.set(-uW / 2 - 0.01, 0, 0.03);
+        unitGroup.add(sideL);
+
+        const sideR = new THREE.Mesh(new THREE.BoxGeometry(0.06, uH - 0.02, uD + 0.15), counterMat);
+        sideR.position.set(uW / 2 + 0.01, 0, 0.03);
+        unitGroup.add(sideR);
+
+        // Island Doors
+        const door1 = new THREE.Mesh(new THREE.BoxGeometry(uW / 3 - 0.01, uH - 0.15, 0.018), baseDoorMat);
+        door1.position.set(-uW / 3, -0.025, uD / 2 + 0.01);
+        unitGroup.add(door1);
+
+        const door2 = new THREE.Mesh(new THREE.BoxGeometry(uW / 3 - 0.01, uH - 0.15, 0.018), baseDoorMat);
+        door2.position.set(0, -0.025, uD / 2 + 0.01);
+        unitGroup.add(door2);
+
+        const door3 = new THREE.Mesh(new THREE.BoxGeometry(uW / 3 - 0.01, uH - 0.15, 0.018), baseDoorMat);
+        door3.position.set(uW / 3, -0.025, uD / 2 + 0.01);
+        unitGroup.add(door3);
       } else if (unit.unitType === 'murphy_bed') {
         // Murphy Bed Box & Mattress
         const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(uW, uH, uD), woodBedMat);

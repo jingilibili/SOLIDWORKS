@@ -18,6 +18,8 @@ import { AiAssistant } from './components/AiAssistant';
 import { NestingStudio } from './components/NestingStudio';
 import { LaserCncStudio } from './components/LaserCncStudio';
 import { SavedScenariosModal } from './components/SavedScenariosModal';
+import { BackupSystemModal } from './components/BackupSystemModal';
+import { InspirationGalleryStudio } from './components/InspirationGalleryStudio';
 import { getAutosaveState } from './utils/scenarioStorage';
 
 export default function App() {
@@ -27,6 +29,7 @@ export default function App() {
 
   // Scenario Management Modal State
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState<boolean>(false);
+  const [isBackupModalOpen, setIsBackupModalOpen] = useState<boolean>(false);
   const [loadedScenarioState, setLoadedScenarioState] = useState<{
     tab: ActiveTab;
     data: any;
@@ -64,6 +67,7 @@ export default function App() {
         isSwConnected={isSwConnected}
         onConnectSw={handleConnectSw}
         onOpenScenarioModal={() => setIsScenarioModalOpen(true)}
+        onOpenBackupModal={() => setIsBackupModalOpen(true)}
       />
 
       {/* Notification Toast */}
@@ -81,6 +85,26 @@ export default function App() {
             setActiveTab={setActiveTab}
             isSwConnected={isSwConnected}
             onConnectSw={handleConnectSw}
+          />
+        )}
+
+        {activeTab === 'inspiration_gallery' && (
+          <InspirationGalleryStudio
+            onNavigateTab={(tab) => setActiveTab(tab)}
+            onImportToRoomPlanner={(config) => {
+              setLoadedScenarioState({
+                tab: 'room_planner',
+                data: config,
+                key: Date.now()
+              });
+            }}
+            onImportToCabinetStudio={(params) => {
+              setLoadedScenarioState({
+                tab: 'cabinet',
+                data: params,
+                key: Date.now()
+              });
+            }}
           />
         )}
 
@@ -166,6 +190,13 @@ export default function App() {
         currentTabData={getCurrentTabData()}
         onLoadScenario={handleLoadScenario}
       />
+
+      {/* Backup, Restore & Offline Package Modal */}
+      <BackupSystemModal
+        isOpen={isBackupModalOpen}
+        onClose={() => setIsBackupModalOpen(false)}
+      />
+
 
       {/* Footer */}
       <footer className="bg-[#1e293b] border-t border-slate-700 py-4 text-center text-xs text-slate-300">

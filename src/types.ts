@@ -4,6 +4,7 @@
 
 export type ActiveTab = 
   | 'dashboard' 
+  | 'inspiration_gallery'
   | 'room_planner'
   | 'cabinet' 
   | 'murphy_bed'

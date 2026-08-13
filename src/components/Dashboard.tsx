@@ -18,7 +18,8 @@ import {
   Home,
   ShoppingCart,
   Scissors,
-  Flame
+  Flame,
+  Compass
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -93,6 +94,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Inspiration Gallery */}
+          <div
+            onClick={() => setActiveTab('inspiration_gallery')}
+            className="group cursor-pointer bg-gradient-to-br from-indigo-900 to-slate-900 border border-indigo-700/60 hover:border-indigo-500 p-6 rounded-2xl transition-all shadow-md hover:shadow-xl space-y-3 text-white col-span-1 md:col-span-2 lg:col-span-1"
+          >
+            <div className="w-12 h-12 rounded-xl bg-indigo-500/20 text-amber-400 flex items-center justify-center border border-indigo-400/30 group-hover:scale-105 transition-transform">
+              <Compass className="w-6 h-6" />
+            </div>
+            <h4 className="text-base font-bold text-white group-hover:text-amber-300 transition-colors flex items-center gap-1.5">
+              <span>گالری الهام (Pinterest)</span>
+              <span className="text-[10px] bg-amber-400 text-slate-900 font-extrabold px-1.5 py-0.5 rounded">ترند ۲۰۲۶</span>
+            </h4>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              مشاهده مدل‌های جدید کابینت، ژاپاندی، اسلیم شیکر و چیدمان پینترست و ورود مستقیم به استودیو.
+            </p>
+            <div className="pt-2 flex items-center text-xs font-bold text-amber-400 gap-1 group-hover:translate-x-[-4px] transition-transform">
+              ورود به گالری و انتخاب سبک
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </div>
+          </div>
+
           {/* Room Planner Studio */}
           <div
             onClick={() => setActiveTab('room_planner')}
